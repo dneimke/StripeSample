@@ -1,0 +1,18 @@
+﻿@{
+    ViewData["Title"] = "Subscription Management";
+}
+
+<div>
+
+    <h2>Subscription</h2>
+
+    @if (ViewBag.HasSubscription)
+    {
+        <p>You have a subscription to the $100 per month plan</p>
+
+        <form asp-controller="Home" asp-action="CancelSubscription" method="post">
+            <input type="submit" class="btn btn-danger" value="Cancel Subscription" />
+        </form>
+    }
+
+</div>

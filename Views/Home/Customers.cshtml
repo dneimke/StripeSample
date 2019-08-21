@@ -1,0 +1,40 @@
+﻿@{
+    ViewData["Title"] = "Customers";
+}
+
+<div>
+
+    <h2>Customers</h2>
+
+    @if (!(ViewBag.Customers as IEnumerable<Stripe.Customer>).Any())
+    {
+        <p>There are no customers</p>
+
+        <h1 class="display-4">Customer</h1>
+        <form asp-controller="Home" asp-action="CreateCustomer" method="post">
+            <input type="submit" class="btn btn-primary" value="Create Customer" />
+        </form>
+    }
+    else
+    {
+        <table class="table-sm">
+            <tr>
+                <th>Id</th>
+                <th>Email</th>
+                <th>Application Id</th>
+            </tr>
+            @foreach (var customer in ViewBag.Customers)
+            {
+                <tr>
+                    <td>@customer.Id</td>
+                    <td>@customer.Email</td>
+                    <td>
+                        @customer.Metadata["CustomerId"]
+                    </td>
+                </tr>
+            }
+        </table>
+    }
+
+
+</div>
