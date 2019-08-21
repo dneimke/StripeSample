@@ -91,7 +91,7 @@ namespace StripeSample.Controllers
                         PlanId = _testData.PlanId,
                         State = SubscriptionState.Active,
                         SubscriptionId = data.Id,
-                        User = await _userContext.GetUserAsync()
+                        User = _userContext.GetUser()
                     };
 
                     _dbContext.Subscription.Add(subscription);

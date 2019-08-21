@@ -28,9 +28,9 @@ namespace StripeSample
             _dbContext = dbContext;
         }
 
-        public async Task<User> GetUserAsync()
+        public User GetUser()
         {
-            var user = await _dbContext.User.FirstOrDefaultAsync(e => e.Id == Id);
+            var user = _dbContext.User.FirstOrDefault(e => e.Id == Id);
             return user;
         } 
     }
