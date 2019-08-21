@@ -114,7 +114,7 @@ namespace StripeSample.Controllers
                     Enum.TryParse(data.Status, true, out state);
                     subscription.State = state;
                 }
-                else if(stripeEvent.Type == Events.InvoiceFinalized)
+                else if(stripeEvent.Type == Events.InvoiceCreated)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Invoice;
                     var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
