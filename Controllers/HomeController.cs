@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Stripe;
+using StripeSample.Infrastructure.Data;
 using StripeSample.Models;
 using StripeSample.Services;
 using System;
@@ -15,49 +14,21 @@ namespace StripeSample.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
-        private readonly IConfiguration _configuration;
+        private readonly ApplicationDbContext _dbContext;
         private readonly StripePaymentService _paymentService;
         private readonly UserContext _userContext;
         private readonly TestData _testData;
-        private readonly StripeSettings _stripeSettings;
 
-        public HomeController(ILogger<HomeController> logger, IConfiguration configuration, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings)
+        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData)
         {
-            _logger = logger;
-            _configuration = configuration;
+            _dbContext = dbContext;
             _paymentService = paymentService;
             _userContext = userContext;
             _testData = testData.Value;
-            _stripeSettings = stripeSettings.Value;
         }
 
-        public async Task<IActionResult> Index()
+        public IActionResult Index()
         {
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
-            ViewBag.HasSubscription = subscriptions.Any();
-            return View();
-        }
-
-        public async Task<IActionResult> Customers()
-        {
-            var customers = await _paymentService.ListCustomers();
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
-            ViewBag.Customers = customers;
-            ViewBag.HasSubscription = subscriptions.Any();
-
-            return View();
-        }
-
-        public async Task<IActionResult> Products()
-        {
-            var products = await _paymentService.ListProducts();
-            var customers = await _paymentService.ListCustomers();
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
-            ViewBag.Products = products;
-            ViewBag.IsCustomerCreated = customers.Any();
-            ViewBag.HasSubscription = subscriptions.Any();
-
             return View();
         }
 
@@ -86,22 +57,6 @@ namespace StripeSample.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreatePlan()
-        {
-            var product = await _paymentService.CreateProduct("Product 1");
-            var plan = await _paymentService.CreatePlan(product.Id, "Plan 1", 800);
-            return Json(new { ProductId = product.Id, PlanId = plan.Id });
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateCustomer()
-        {
-            var customerId = Guid.NewGuid().ToString();
-            var customer = await _paymentService.CreateCustomer(_userContext.EmailAddress, customerId);
-            return Json(new { CustomerId = customer.Id, InternalCustomerId = customerId });
-        }
-
-        [HttpPost]
         public async Task<IActionResult> CancelSubscription()
         {
             var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
@@ -109,17 +64,16 @@ namespace StripeSample.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        public async Task<IActionResult> Success()
+        public IActionResult Success()
         {
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
-            ViewBag.HasSubscription = subscriptions.Any();
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Purchase));
         }
 
-        public async Task Webhook()
+        public async Task<IAsyncResult> Webhook()
         {
             const string secret = "whsec_1q2QIM59vyFmD9DydHqnCafAGjMtVT04";
-            var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+            using var stream = new StreamReader(HttpContext.Request.Body);
+            var json = await stream.ReadToEndAsync();
 
             try
             {
@@ -128,12 +82,31 @@ namespace StripeSample.Controllers
                 if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Subscription;
+
+                    var subscription = new Entities.Subscription
+                    {
+                        Id = Guid.NewGuid(),
+                        PlanId = _testData.PlanId,
+                        State = Entities.SubscriptionState.Active,
+                        SubscriptionId = data.Id,
+                        User = _userContext.GetUser()
+                    };
+
+                    _dbContext.Subscription.Add(subscription);
+                    await _dbContext.SaveChangesAsync();
+
                     Console.WriteLine($"{data.CustomerId} created a subscription.");
                 }
                 else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Subscription;
                     Console.WriteLine($"{data.CustomerId} deleted a subscription.");
+
+                    var subscription = _dbContext.Subscription
+                        .FirstOrDefault(e => e.SubscriptionId == data.Id);
+
+                    _dbContext.Subscription.Remove(subscription);
+                    await _dbContext.SaveChangesAsync();
                 }
                 else if (stripeEvent.Type == Events.ChargeSucceeded)
                 {
@@ -145,10 +118,14 @@ namespace StripeSample.Controllers
                     var data = stripeEvent.Data.Object as Stripe.Charge;
                     Console.WriteLine($"{data.CustomerId} was not successfully charged {data.Amount}.");
                 }
+
+                return Ok() as IAsyncResult;
             }
             catch (StripeException e)
             {
                 Console.WriteLine(e);
+                return StatusCode(500) as IAsyncResult; 
+                
             }
         }
 

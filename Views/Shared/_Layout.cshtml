@@ -19,17 +19,8 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-controller="Home" asp-action="Products">Products</a>
+                            <a class="nav-link text-dark" asp-controller="Home" asp-action="Purchase">My Products</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-controller="Home" asp-action="Customers">Customers</a>
-                        </li>
-                        @if(ViewBag.HasSubscription)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Home" asp-action="Subscription">Subscription</a>
-                            </li>
-                        }
                     </ul>
                 </div>
             </div>

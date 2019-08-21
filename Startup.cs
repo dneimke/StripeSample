@@ -22,12 +22,10 @@ namespace StripeSample
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddStripe(options => {
-                Configuration.GetSection("Stripe").Bind(options);
-            });
+            services.AddStripe();
 
+            services.Configure<StripeSettings>(Configuration.GetSection("Stripe"));
             services.Configure<TestData>(Configuration.GetSection("TestData"));
-            
 
             var connection = Configuration.GetConnectionString("SqlConnection");
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connection));

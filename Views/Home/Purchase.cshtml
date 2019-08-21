@@ -8,7 +8,7 @@
 
         <h2>Subscriptions</h2>
 
-        @if (!(ViewBag.Subscriptions as IEnumerable<Stripe.Subscription>).Any())
+        @if (!ViewBag.HasSubscription)
         {
             <p>You have no current subscriptions</p>
 
@@ -16,12 +16,24 @@
         }
         else
         {
-            <ul>
+            <table class="table-sm">
+                <tr>
+                    <th>Id</th>
+                    <th>Customer</th>
+                    <th></th>
+                </tr>
                 @foreach (var subscription in ViewBag.Subscriptions)
                 {
-                    <li>@subscription.Id for Customer @subscription.Customer</li>
+                    <tr>
+                        <td>@subscription.Id</td>
+                        <td>@subscription.Customer</td>
+                        <td>
+                            <a asp-controller="Home" asp-action="Subscription">Manage Subscription</a>
+                        </td>
+                    </tr>
                 }
-            </ul>
+            </table>
+
         }
     </div>
 

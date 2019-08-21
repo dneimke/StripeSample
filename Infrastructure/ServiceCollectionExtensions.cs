@@ -9,7 +9,7 @@ namespace StripeSample.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
-        public static void AddStripe(this IServiceCollection services, Action<StripeSettings> options)
+        public static void AddStripe(this IServiceCollection services)
         {
             services.AddTransient<StripePaymentService>();
             services.AddTransient<ProductService>();

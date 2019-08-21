@@ -1,4 +1,5 @@
-﻿using StripeSample.Infrastructure.Data;
+﻿using StripeSample.Entities;
+using StripeSample.Infrastructure.Data;
 using System;
 using System.Linq;
 
@@ -6,6 +7,8 @@ namespace StripeSample
 {
     public class UserContext
     {
+        private readonly ApplicationDbContext _dbContext;
+
         public Guid Id { get; }
         public string EmailAddress { get; }
         public string CustomerId { get; }
@@ -19,6 +22,13 @@ namespace StripeSample
                 EmailAddress = testUser.EmailAddress;
                 CustomerId = testUser.CustomerId;
             }
+
+            _dbContext = dbContext;
         }
+
+        public User GetUser()
+        {
+            return _dbContext.User.FirstOrDefault(e => e.Id == Id);
+        } 
     }
 }
