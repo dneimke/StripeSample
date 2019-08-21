@@ -17,13 +17,15 @@ namespace StripeSample.Controllers
         private readonly ApplicationDbContext _dbContext;
         private readonly StripePaymentService _paymentService;
         private readonly UserContext _userContext;
+        private readonly StripeSettings _stripeSettings;
         private readonly TestData _testData;
 
-        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData)
+        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings)
         {
             _dbContext = dbContext;
             _paymentService = paymentService;
             _userContext = userContext;
+            _stripeSettings = stripeSettings.Value;
             _testData = testData.Value;
         }
 
@@ -71,7 +73,7 @@ namespace StripeSample.Controllers
 
         public async Task<IAsyncResult> Webhook()
         {
-            const string secret = "whsec_1q2QIM59vyFmD9DydHqnCafAGjMtVT04";
+            var secret = _stripeSettings.WebhookSecret;
             using var stream = new StreamReader(HttpContext.Request.Body);
             var json = await stream.ReadToEndAsync();
 

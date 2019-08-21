@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Stripe;
 using Stripe.Checkout;
 using StripeSample.Models;
@@ -16,14 +17,16 @@ namespace StripeSample.Services
         private readonly PlanService _planService;
         private readonly SubscriptionService _subscriptionService;
         private readonly SessionService _sessionService;
+        private readonly IConfiguration _configuration;
 
-        public StripePaymentService(CustomerService customerService, ProductService productService, PlanService planService, SubscriptionService subscriptionService, SessionService sessionService)
+        public StripePaymentService(CustomerService customerService, ProductService productService, PlanService planService, SubscriptionService subscriptionService, SessionService sessionService, IConfiguration configuration)
         {
             _customerService = customerService;
             _productService = productService;
             _planService = planService;
             _subscriptionService = subscriptionService;
             _sessionService = sessionService;
+            _configuration = configuration;
         }
 
         public async Task<Product> CreateProduct(string name, string type = "service")
@@ -71,6 +74,7 @@ namespace StripeSample.Services
 
         public async Task<Session> CreateCheckoutSession(string planId, string customerId)
         {
+            var baseUrl = _configuration["BaseUrl"];
             var options = new SessionCreateOptions
             {
                 CustomerId = customerId,
@@ -83,8 +87,8 @@ namespace StripeSample.Services
                         }
                     }
                 },
-                SuccessUrl = "http://localhost:55965/Home/Success",
-                CancelUrl = "http://localhost:55965"
+                SuccessUrl = $"{baseUrl}/Home/Success",
+                CancelUrl = baseUrl
             };
 
             return await _sessionService.CreateAsync(options);
