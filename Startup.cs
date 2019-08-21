@@ -22,6 +22,7 @@ namespace StripeSample
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddApplicationInsightsTelemetry(Configuration);
             services.AddStripe();
 
             services.Configure<StripeSettings>(Configuration.GetSection("Stripe"));
