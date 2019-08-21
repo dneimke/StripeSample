@@ -11,5 +11,6 @@ namespace StripeSample.Infrastructure.Data
 
         public DbSet<User> User { get; set; }
         public DbSet<Subscription> Subscription { get; set; }
+        public DbSet<Invoice> Invoice { get; set; }
     }
 }

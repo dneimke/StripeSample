@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Stripe;
+using StripeSample.Entities;
 using StripeSample.Infrastructure.Data;
 using StripeSample.Models;
 using StripeSample.Services;
@@ -50,9 +52,6 @@ namespace StripeSample.Controllers
 
         public async Task<IActionResult> Subscription()
         {
-            var customers = await _paymentService.ListCustomers();
-            ViewBag.Customers = customers;
-
             var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
             ViewBag.HasSubscription = subscriptions.Any();
             return View();
@@ -81,6 +80,7 @@ namespace StripeSample.Controllers
             {
                 var stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
 
+
                 if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Subscription;
@@ -89,38 +89,84 @@ namespace StripeSample.Controllers
                     {
                         Id = Guid.NewGuid(),
                         PlanId = _testData.PlanId,
-                        State = Entities.SubscriptionState.Active,
+                        State = SubscriptionState.Active,
                         SubscriptionId = data.Id,
-                        User = _userContext.GetUser()
+                        User = await _userContext.GetUserAsync()
                     };
 
                     _dbContext.Subscription.Add(subscription);
-                    await _dbContext.SaveChangesAsync();
+                }
+                else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
+                {
+                    var data = stripeEvent.Data.Object as Stripe.Subscription;
+                    var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
 
-                    Console.WriteLine($"{data.CustomerId} created a subscription.");
+                    var state = SubscriptionState.None;
+                    Enum.TryParse(data.Status, true, out state);
+                    subscription.State = state;
                 }
                 else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Subscription;
-                    Console.WriteLine($"{data.CustomerId} deleted a subscription.");
+                    var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
 
-                    var subscription = _dbContext.Subscription
-                        .FirstOrDefault(e => e.SubscriptionId == data.Id);
-
-                    _dbContext.Subscription.Remove(subscription);
-                    await _dbContext.SaveChangesAsync();
+                    var state = SubscriptionState.None;
+                    Enum.TryParse(data.Status, true, out state);
+                    subscription.State = state;
                 }
-                else if (stripeEvent.Type == Events.ChargeSucceeded)
+                else if(stripeEvent.Type == Events.InvoiceFinalized)
                 {
-                    var data = stripeEvent.Data.Object as Stripe.Charge;
-                    Console.WriteLine($"{data.CustomerId} was successfully charged {data.Amount}.");
+                    var data = stripeEvent.Data.Object as Stripe.Invoice;
+                    var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
+                    var status = InvoiceStatus.None;
+                    Enum.TryParse(data.Status, true, out status);
+
+                    var invoice = new Entities.Invoice
+                    {
+                        Id = Guid.NewGuid(),
+                        InvoiceId = data.Id,
+                        InvoiceNumber = data.Number,
+                        AmountDue = data.AmountDue,
+                        AmountPaid = data.AmountPaid,
+                        AmountRemaining = data.AmountRemaining,
+                        BillingReason = data.BillingReason,
+                        InvoicePdfUrl = data.HostedInvoiceUrl,
+                        PeriodEnd = data.PeriodEnd,
+                        PeriodStart = data.PeriodStart,
+                        Status = status,
+                        Subscription = subscription
+                    };
+
+                    _dbContext.Invoice.Add(invoice);
                 }
-                else if (stripeEvent.Type == Events.ChargeFailed)
+                else if (stripeEvent.Type == Events.InvoiceUpdated)
                 {
-                    var data = stripeEvent.Data.Object as Stripe.Charge;
-                    Console.WriteLine($"{data.CustomerId} was not successfully charged {data.Amount}.");
+                    var data = stripeEvent.Data.Object as Stripe.Invoice;
+                    var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+
+                    var status = InvoiceStatus.None;
+                    Enum.TryParse(data.Status, true, out status);
+
+                    invoice.AmountDue = data.AmountDue;
+                    invoice.AmountPaid = data.AmountPaid;
+                    invoice.AmountRemaining = data.AmountRemaining;
+                    invoice.Status = status;
+                }
+                else if (stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
+                {
+                    var data = stripeEvent.Data.Object as Stripe.Invoice;
+                    var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+
+                    var status = InvoiceStatus.None;
+                    Enum.TryParse(data.Status, true, out status);
+
+                    invoice.AmountDue = data.AmountDue;
+                    invoice.AmountPaid = data.AmountPaid;
+                    invoice.AmountRemaining = data.AmountRemaining;
+                    invoice.Status = status;
                 }
 
+                await _dbContext.SaveChangesAsync();
                 return Ok() as IAsyncResult;
             }
             catch (StripeException e)

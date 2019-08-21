@@ -13,48 +13,18 @@ namespace StripeSample.Services
     public class StripePaymentService
     {
         private readonly CustomerService _customerService;
-        private readonly ProductService _productService;
-        private readonly PlanService _planService;
+        //private readonly ProductService _productService;
+        //private readonly PlanService _planService;
         private readonly SubscriptionService _subscriptionService;
         private readonly SessionService _sessionService;
         private readonly IConfiguration _configuration;
 
-        public StripePaymentService(CustomerService customerService, ProductService productService, PlanService planService, SubscriptionService subscriptionService, SessionService sessionService, IConfiguration configuration)
+        public StripePaymentService(CustomerService customerService, SubscriptionService subscriptionService, SessionService sessionService, IConfiguration configuration)
         {
             _customerService = customerService;
-            _productService = productService;
-            _planService = planService;
             _subscriptionService = subscriptionService;
             _sessionService = sessionService;
             _configuration = configuration;
-        }
-
-        public async Task<Product> CreateProduct(string name, string type = "service")
-        {
-            var options = new ProductCreateOptions
-            {
-                Name = name,
-                Type = type,
-            };
-
-            var product = await _productService.CreateAsync(options);
-            return product;
-        }
-
-        public async Task<Plan> CreatePlan(string productId, string name, long amount, string interval = "month", string currency = "aud")
-        {
-            var options = new PlanCreateOptions
-            {
-                Product = productId,
-                Nickname = name,
-                Currency = currency,
-                Interval = interval,
-                Amount = amount,
-                UsageType = "licensed"
-            };
-
-            var plan = await _planService.CreateAsync(options);
-            return plan;
         }
 
         public async Task<Customer> CreateCustomer(string emailAddress, string customerId)
@@ -94,18 +64,6 @@ namespace StripeSample.Services
             return await _sessionService.CreateAsync(options);
         }
 
-        public async Task<List<Product>> ListProducts()
-        {
-            var products = await _productService.ListAsync();
-            return products.Data;
-        }
-
-        public async Task<List<Customer>> ListCustomers()
-        {
-            var customers = await _customerService.ListAsync();
-            return customers.Data;
-        }
-
         public async Task<List<Subscription>> ListSubscriptions(string customerId)
         {
             var options = new SubscriptionListOptions
@@ -126,5 +84,48 @@ namespace StripeSample.Services
 
             await _subscriptionService.CancelAsync(subscriptionId, options);
         }
+
+
+
+
+        //public async Task<Product> CreateProduct(string name, string type = "service")
+        //{
+        //    var options = new ProductCreateOptions
+        //    {
+        //        Name = name,
+        //        Type = type,
+        //    };
+
+        //    var product = await _productService.CreateAsync(options);
+        //    return product;
+        //}
+
+        //public async Task<Plan> CreatePlan(string productId, string name, long amount, string interval = "month", string currency = "aud")
+        //{
+        //    var options = new PlanCreateOptions
+        //    {
+        //        Product = productId,
+        //        Nickname = name,
+        //        Currency = currency,
+        //        Interval = interval,
+        //        Amount = amount,
+        //        UsageType = "licensed"
+        //    };
+
+        //    var plan = await _planService.CreateAsync(options);
+        //    return plan;
+        //}
+
+        //public async Task<List<Product>> ListProducts()
+        //{
+        //    var products = await _productService.ListAsync();
+        //    return products.Data;
+        //}
+
+        //public async Task<List<Customer>> ListCustomers()
+        //{
+        //    var customers = await _customerService.ListAsync();
+        //    return customers.Data;
+        //}
     }
 }

@@ -1,7 +1,9 @@
-﻿using StripeSample.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using StripeSample.Entities;
 using StripeSample.Infrastructure.Data;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace StripeSample
 {
@@ -26,9 +28,10 @@ namespace StripeSample
             _dbContext = dbContext;
         }
 
-        public User GetUser()
+        public async Task<User> GetUserAsync()
         {
-            return _dbContext.User.FirstOrDefault(e => e.Id == Id);
+            var user = await _dbContext.User.FirstOrDefaultAsync(e => e.Id == Id);
+            return user;
         } 
     }
 }
