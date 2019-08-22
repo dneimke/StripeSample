@@ -92,55 +92,21 @@ namespace StripeSample.Controllers
 
             try
             {
-                _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventData}", stripeEvent.Type, stripeEvent.Data);
+                _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventId} data {StripeEventPayload}", stripeEvent.Type, stripeEvent.Id, stripeEvent.Data);
 
-                if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
+                if (stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionUpdated || stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
                     var subscription = await EnsureSubscriptionAsync(data.Id);
+
+                    var state = SubscriptionState.None;
+                    Enum.TryParse(data.Status, true, out state);
+                    subscription.State = state;
+                    subscription.ModifiedDateTime = DateTime.Now;
+
                     _dbContext.Subscription.Add(subscription);
                 }
-                else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
-                {
-                    var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    var subscription = await EnsureSubscriptionAsync(data.Id);
-
-                    var state = SubscriptionState.None;
-                    Enum.TryParse(data.Status, true, out state);
-                    subscription.State = state;
-                    subscription.ModifiedDateTime = DateTime.Now;
-                }
-                else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
-                {
-                    var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    var subscription = await EnsureSubscriptionAsync(data.Id);
-
-                    var state = SubscriptionState.None;
-                    Enum.TryParse(data.Status, true, out state);
-                    subscription.State = state;
-                    subscription.ModifiedDateTime = DateTime.Now;
-                }
-                else if (stripeEvent.Type == Events.InvoiceCreated)
-                {
-                    var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
-                    var invoice = await EnsureInvoiceAsync(data);
-                    _dbContext.Invoice.Add(invoice);
-                }
-                else if (stripeEvent.Type == Events.InvoiceUpdated)
-                {
-                    var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
-                    var invoice = await EnsureInvoiceAsync(data);
-
-                    var status = InvoiceStatus.None;
-                    Enum.TryParse(data.Status, true, out status);
-
-                    invoice.AmountDue = data.AmountDue;
-                    invoice.AmountPaid = data.AmountPaid;
-                    invoice.AmountRemaining = data.AmountRemaining;
-                    invoice.Status = status;
-                    invoice.ModifiedDateTime = DateTime.Now;
-                }
-                else if (stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
+                else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
                 {
                     var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
                     var invoice = await EnsureInvoiceAsync(data);
