@@ -25,7 +25,7 @@ namespace StripeSample.Controllers
         private readonly StripeSettings _stripeSettings;
         private readonly TestData _testData;
 
-        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings, ILogger logger)
+        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings, ILogger<HomeController> logger)
         {
             _dbContext = dbContext;
             _paymentService = paymentService;
