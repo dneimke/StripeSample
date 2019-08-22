@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Stripe;
 using StripeSample.Entities;
@@ -20,14 +21,16 @@ namespace StripeSample.Controllers
         private readonly ApplicationDbContext _dbContext;
         private readonly StripePaymentService _paymentService;
         private readonly UserContext _userContext;
+        private readonly ILogger _logger;
         private readonly StripeSettings _stripeSettings;
         private readonly TestData _testData;
 
-        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings)
+        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings, ILogger logger)
         {
             _dbContext = dbContext;
             _paymentService = paymentService;
             _userContext = userContext;
+            _logger = logger;
             _stripeSettings = stripeSettings.Value;
             _testData = testData.Value;
         }
@@ -82,10 +85,17 @@ namespace StripeSample.Controllers
                 {
                     var stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
 
+                    _logger.LogInformation("Stripe event received {StripeEvent}", stripeEvent);
 
                     if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
                     {
                         var data = stripeEvent.Data.Object as Stripe.Subscription;
+
+                        if (data == null)
+                        {
+                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            throw new InvalidOperationException("Unable to read request data for CustomerSubscriptionCreated event");
+                        }
 
                         var subscription = new Entities.Subscription
                         {
@@ -103,7 +113,21 @@ namespace StripeSample.Controllers
                     else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
                     {
                         var data = stripeEvent.Data.Object as Stripe.Subscription;
+
+                        if (data == null)
+                        {
+                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            throw new InvalidOperationException("Unable to read request data for CustomerSubscriptionUpdated event");
+                        }
+
                         var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
+
+                        if (subscription == null)
+                        {
+                            _logger.LogWarning("Subscription not found {Id}", data.Id);
+                            throw new InvalidOperationException("Subscription not found");
+                        }
+                            
 
                         var state = SubscriptionState.None;
                         Enum.TryParse(data.Status, true, out state);
@@ -113,7 +137,20 @@ namespace StripeSample.Controllers
                     else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                     {
                         var data = stripeEvent.Data.Object as Stripe.Subscription;
+
+                        if (data == null)
+                        {
+                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            throw new InvalidOperationException("Unable to read request data for CustomerSubscriptionDeleted event");
+                        }
+
                         var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
+
+                        if (subscription == null)
+                        {
+                            _logger.LogWarning("Subscription not found {Id}", data.Id);
+                            throw new InvalidOperationException("Subscription not found");
+                        }
 
                         var state = SubscriptionState.None;
                         Enum.TryParse(data.Status, true, out state);
@@ -125,12 +162,18 @@ namespace StripeSample.Controllers
                         var data = stripeEvent.Data.Object as Stripe.Invoice;
 
                         if (data == null)
+                        {
+                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for InvoiceCreated event");
+                        }
 
                         var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
 
                         if (subscription == null)
+                        {
+                            _logger.LogWarning("Subscription not found {Id}", data.Id);
                             throw new InvalidOperationException("Subscription not found");
+                        }
 
                         var status = InvoiceStatus.None;
                         Enum.TryParse(data.Status, true, out status);
@@ -160,12 +203,19 @@ namespace StripeSample.Controllers
                         var data = stripeEvent.Data.Object as Stripe.Invoice;
 
                         if (data == null)
+                        {
+                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
+                        }
+                            
 
                         var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
 
                         if (invoice == null)
+                        {
+                            _logger.LogWarning("Invoice not found {Id}", data.Id);
                             throw new InvalidOperationException("Invoice not found");
+                        }
 
                         var status = InvoiceStatus.None;
                         Enum.TryParse(data.Status, true, out status);
@@ -181,7 +231,10 @@ namespace StripeSample.Controllers
                         var data = stripeEvent.Data.Object as Stripe.Invoice;
 
                         if (data == null)
-                            throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
+                        {
+                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            throw new InvalidOperationException("Unable to read request data for PaymentSucceeded/Failed event");
+                        }
 
                         var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
 
