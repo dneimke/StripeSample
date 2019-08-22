@@ -128,6 +128,10 @@ namespace StripeSample.Controllers
                             throw new InvalidOperationException("Unable to read request data for InvoiceCreated event");
 
                         var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
+
+                        if (subscription == null)
+                            throw new InvalidOperationException("Subscription not found");
+
                         var status = InvoiceStatus.None;
                         Enum.TryParse(data.Status, true, out status);
 
