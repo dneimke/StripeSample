@@ -97,13 +97,13 @@ namespace StripeSample.Controllers
                 if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    var subscription = await EnsureSubscriptionAsync(data);
+                    var subscription = await EnsureSubscriptionAsync(data.Id);
                     _dbContext.Subscription.Add(subscription);
                 }
                 else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    var subscription = await EnsureSubscriptionAsync(data);
+                    var subscription = await EnsureSubscriptionAsync(data.Id);
 
                     var state = SubscriptionState.None;
                     Enum.TryParse(data.Status, true, out state);
@@ -113,7 +113,7 @@ namespace StripeSample.Controllers
                 else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    var subscription = await EnsureSubscriptionAsync(data);
+                    var subscription = await EnsureSubscriptionAsync(data.Id);
 
                     var state = SubscriptionState.None;
                     Enum.TryParse(data.Status, true, out state);
@@ -191,9 +191,9 @@ namespace StripeSample.Controllers
             return data;
         }
 
-        private async Task<Entities.Subscription> EnsureSubscriptionAsync(Stripe.Subscription data)
+        private async Task<Entities.Subscription> EnsureSubscriptionAsync(string subscriptionId)
         {
-            var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
+            var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == subscriptionId);
 
             if (subscription == null)
             {
@@ -202,7 +202,7 @@ namespace StripeSample.Controllers
                     Id = Guid.NewGuid(),
                     PlanId = _testData.PlanId,
                     State = SubscriptionState.Active,
-                    SubscriptionId = data.Id,
+                    SubscriptionId = subscriptionId,
                     CreatedDateTime = DateTime.Now,
                     ModifiedDateTime = DateTime.Now,
                     User = _userContext.GetUser()
@@ -219,7 +219,7 @@ namespace StripeSample.Controllers
 
             if (invoice == null)
             {
-                var subscription = await EnsureSubscriptionAsync(data.Subscription);
+                var subscription = await EnsureSubscriptionAsync(data.SubscriptionId);
 
                 var status = InvoiceStatus.None;
                 Enum.TryParse(data.Status, true, out status);
