@@ -117,6 +117,10 @@ namespace StripeSample.Controllers
                 else if(stripeEvent.Type == Events.InvoiceCreated)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Invoice;
+
+                    if (data == null)
+                        throw new InvalidOperationException("Unable to read request data for InvoiceCreated event");
+
                     var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
                     var status = InvoiceStatus.None;
                     Enum.TryParse(data.Status, true, out status);
@@ -142,7 +146,14 @@ namespace StripeSample.Controllers
                 else if (stripeEvent.Type == Events.InvoiceUpdated)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Invoice;
+
+                    if (data == null)
+                        throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
+
                     var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+
+                    if (invoice == null)
+                        throw new InvalidOperationException("Invoice not found");
 
                     var status = InvoiceStatus.None;
                     Enum.TryParse(data.Status, true, out status);
@@ -155,7 +166,14 @@ namespace StripeSample.Controllers
                 else if (stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
                 {
                     var data = stripeEvent.Data.Object as Stripe.Invoice;
+
+                    if (data == null)
+                        throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
+
                     var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+
+                    if (invoice == null)
+                        throw new InvalidOperationException("Invoice not found");
 
                     var status = InvoiceStatus.None;
                     Enum.TryParse(data.Status, true, out status);
@@ -171,9 +189,15 @@ namespace StripeSample.Controllers
             }
             catch (StripeException e)
             {
-                Console.WriteLine(e);
                 return StatusCode(500) as IAsyncResult; 
-                
+            }
+            catch(InvalidOperationException e)
+            {
+                return StatusCode(400) as IAsyncResult;
+            }
+            catch(Exception e)
+            {
+                return StatusCode(500) as IAsyncResult;
             }
         }
 
