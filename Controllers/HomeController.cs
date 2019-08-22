@@ -103,8 +103,6 @@ namespace StripeSample.Controllers
                     Enum.TryParse(data.Status, true, out state);
                     subscription.State = state;
                     subscription.ModifiedDateTime = DateTime.Now;
-
-                    _dbContext.Subscription.Add(subscription);
                 }
                 else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
                 {
@@ -173,6 +171,8 @@ namespace StripeSample.Controllers
                     ModifiedDateTime = DateTime.Now,
                     User = _userContext.GetUser()
                 };
+
+                _dbContext.Subscription.Add(subscription);
             }
 
             return subscription;
@@ -207,6 +207,8 @@ namespace StripeSample.Controllers
                     Status = status,
                     Subscription = subscription
                 };
+
+                _dbContext.Invoice.Add(invoice);
             }
 
             return invoice;
