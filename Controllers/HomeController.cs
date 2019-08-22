@@ -89,7 +89,7 @@ namespace StripeSample.Controllers
                     throw new InvalidOperationException("Unable to extract event.");
                 }
 
-                _logger.LogInformation("Stripe event {StripeEventType} ({StripeEventId}) received {StripeEventId} data {StripeEventPayload}", stripeEvent.Type, stripeEvent.Id, stripeEvent.Data);
+                _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventId} data {StripeEventPayload}", stripeEvent.Type, stripeEvent.Id, stripeEvent.Data);
             }
 
             try
