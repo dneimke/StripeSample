@@ -85,7 +85,7 @@ namespace StripeSample.Controllers
                 {
                     var stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
 
-                    _logger.LogInformation("Stripe event received {StripeEvent}", stripeEvent);
+                    _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventData}", stripeEvent.Type, stripeEvent.Data);
 
                     if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
                     {
@@ -93,7 +93,7 @@ namespace StripeSample.Controllers
 
                         if (data == null)
                         {
-                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            _logger.LogWarning(LoggingEvents.CustomerSubscriptionCreated, "DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for CustomerSubscriptionCreated event");
                         }
 
@@ -116,7 +116,7 @@ namespace StripeSample.Controllers
 
                         if (data == null)
                         {
-                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            _logger.LogWarning(LoggingEvents.CustomerSubscriptionUpdated, "DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for CustomerSubscriptionUpdated event");
                         }
 
@@ -124,7 +124,7 @@ namespace StripeSample.Controllers
 
                         if (subscription == null)
                         {
-                            _logger.LogWarning("Subscription not found {Id}", data.Id);
+                            _logger.LogWarning(LoggingEvents.CustomerSubscriptionUpdated, "Subscription for {Operation} not found for {Id}", stripeEvent.Type, data.Id);
                             throw new InvalidOperationException("Subscription not found");
                         }
                             
@@ -140,7 +140,7 @@ namespace StripeSample.Controllers
 
                         if (data == null)
                         {
-                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            _logger.LogWarning(LoggingEvents.CustomerSubscriptionDeleted, "DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for CustomerSubscriptionDeleted event");
                         }
 
@@ -148,7 +148,7 @@ namespace StripeSample.Controllers
 
                         if (subscription == null)
                         {
-                            _logger.LogWarning("Subscription not found {Id}", data.Id);
+                            _logger.LogWarning(LoggingEvents.CustomerSubscriptionDeleted, "Subscription not found {Id}", data.Id);
                             throw new InvalidOperationException("Subscription not found");
                         }
 
@@ -163,7 +163,7 @@ namespace StripeSample.Controllers
 
                         if (data == null)
                         {
-                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            _logger.LogWarning(LoggingEvents.InvoiceCreated, "DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for InvoiceCreated event");
                         }
 
@@ -171,7 +171,7 @@ namespace StripeSample.Controllers
 
                         if (subscription == null)
                         {
-                            _logger.LogWarning("Subscription not found {Id}", data.Id);
+                            _logger.LogWarning(LoggingEvents.InvoiceCreated, "Subscription not found {Id}", data.Id);
                             throw new InvalidOperationException("Subscription not found");
                         }
 
@@ -204,7 +204,7 @@ namespace StripeSample.Controllers
 
                         if (data == null)
                         {
-                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            _logger.LogWarning(LoggingEvents.InvoiceUpdated, "DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
                         }
                             
@@ -213,7 +213,7 @@ namespace StripeSample.Controllers
 
                         if (invoice == null)
                         {
-                            _logger.LogWarning("Invoice not found {Id}", data.Id);
+                            _logger.LogWarning(LoggingEvents.InvoiceUpdated, "Invoice not found {Id}", data.Id);
                             throw new InvalidOperationException("Invoice not found");
                         }
 
@@ -232,14 +232,17 @@ namespace StripeSample.Controllers
 
                         if (data == null)
                         {
-                            _logger.LogWarning("DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
+                            _logger.LogWarning(LoggingEvents.InvoiceResult, "DataObject {Object} for Type {Type}", stripeEvent.Data.Object, stripeEvent.Type);
                             throw new InvalidOperationException("Unable to read request data for PaymentSucceeded/Failed event");
                         }
 
                         var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
 
                         if (invoice == null)
+                        {
+                            _logger.LogWarning(LoggingEvents.InvoiceResult, "Invoice not found {Id}", data.Id);
                             throw new InvalidOperationException("Invoice not found");
+                        }
 
                         var status = InvoiceStatus.None;
                         Enum.TryParse(data.Status, true, out status);
@@ -256,14 +259,17 @@ namespace StripeSample.Controllers
                 }
                 catch (StripeException e)
                 {
+                    _logger.LogError(e, "StripeException occurred");
                     return StatusCode(500) as IAsyncResult;
                 }
                 catch (InvalidOperationException e)
                 {
-                    return StatusCode(400) as IAsyncResult;
+                    _logger.LogError(e, "InvalidOperationException occurred");
+                    return StatusCode(500) as IAsyncResult;
                 }
                 catch (Exception e)
                 {
+                    _logger.LogError(e, "Exception occurred");
                     return StatusCode(500) as IAsyncResult;
                 }
             }
@@ -280,5 +286,16 @@ namespace StripeSample.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+    }
+
+
+    public class LoggingEvents
+    {
+        public const int CustomerSubscriptionCreated = 1000;
+        public const int CustomerSubscriptionUpdated = 1001;
+        public const int CustomerSubscriptionDeleted = 1002;
+        public const int InvoiceCreated = 1003;
+        public const int InvoiceUpdated = 1004;
+        public const int InvoiceResult = 1005;
     }
 }
