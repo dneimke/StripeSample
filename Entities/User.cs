@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace StripeSample.Entities
 {
-    public class User
+    public class User 
     {
         public Guid Id { get; set; }
         [Required]

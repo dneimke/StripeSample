@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Stripe;
@@ -73,132 +74,143 @@ namespace StripeSample.Controllers
         public async Task<IAsyncResult> Webhook()
         {
             var secret = _stripeSettings.WebhookSecret;
-            using var stream = new StreamReader(HttpContext.Request.Body);
-            var json = await stream.ReadToEndAsync();
-
-            try
+            using (var stream = new StreamReader(HttpContext.Request.Body))
             {
-                var stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
+                var json = await stream.ReadToEndAsync();
 
-
-                if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
+                try
                 {
-                    var data = stripeEvent.Data.Object as Stripe.Subscription;
+                    var stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
 
-                    var subscription = new Entities.Subscription
+
+                    if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
                     {
-                        Id = Guid.NewGuid(),
-                        PlanId = _testData.PlanId,
-                        State = SubscriptionState.Active,
-                        SubscriptionId = data.Id,
-                        User = _userContext.GetUser()
-                    };
+                        var data = stripeEvent.Data.Object as Stripe.Subscription;
 
-                    _dbContext.Subscription.Add(subscription);
-                }
-                else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
-                {
-                    var data = stripeEvent.Data.Object as Stripe.Subscription;
-                    var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
+                        var subscription = new Entities.Subscription
+                        {
+                            Id = Guid.NewGuid(),
+                            PlanId = _testData.PlanId,
+                            State = SubscriptionState.Active,
+                            SubscriptionId = data.Id,
+                            CreatedDateTime = DateTime.Now,
+                            ModifiedDateTime = DateTime.Now,
+                            User = _userContext.GetUser()
+                        };
 
-                    var state = SubscriptionState.None;
-                    Enum.TryParse(data.Status, true, out state);
-                    subscription.State = state;
-                }
-                else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
-                {
-                    var data = stripeEvent.Data.Object as Stripe.Subscription;
-                    var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
-
-                    var state = SubscriptionState.None;
-                    Enum.TryParse(data.Status, true, out state);
-                    subscription.State = state;
-                }
-                else if(stripeEvent.Type == Events.InvoiceCreated)
-                {
-                    var data = stripeEvent.Data.Object as Stripe.Invoice;
-
-                    if (data == null)
-                        throw new InvalidOperationException("Unable to read request data for InvoiceCreated event");
-
-                    var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
-                    var status = InvoiceStatus.None;
-                    Enum.TryParse(data.Status, true, out status);
-
-                    var invoice = new Entities.Invoice
+                        _dbContext.Subscription.Add(subscription);
+                    }
+                    else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
                     {
-                        Id = Guid.NewGuid(),
-                        InvoiceId = data.Id,
-                        InvoiceNumber = data.Number,
-                        AmountDue = data.AmountDue,
-                        AmountPaid = data.AmountPaid,
-                        AmountRemaining = data.AmountRemaining,
-                        BillingReason = data.BillingReason,
-                        InvoicePdfUrl = data.HostedInvoiceUrl,
-                        PeriodEnd = data.PeriodEnd,
-                        PeriodStart = data.PeriodStart,
-                        Status = status,
-                        Subscription = subscription
-                    };
+                        var data = stripeEvent.Data.Object as Stripe.Subscription;
+                        var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
 
-                    _dbContext.Invoice.Add(invoice);
+                        var state = SubscriptionState.None;
+                        Enum.TryParse(data.Status, true, out state);
+                        subscription.State = state;
+                        subscription.ModifiedDateTime = DateTime.Now;
+                    }
+                    else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
+                    {
+                        var data = stripeEvent.Data.Object as Stripe.Subscription;
+                        var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.Id);
+
+                        var state = SubscriptionState.None;
+                        Enum.TryParse(data.Status, true, out state);
+                        subscription.State = state;
+                        subscription.ModifiedDateTime = DateTime.Now;
+                    }
+                    else if (stripeEvent.Type == Events.InvoiceCreated)
+                    {
+                        var data = stripeEvent.Data.Object as Stripe.Invoice;
+
+                        if (data == null)
+                            throw new InvalidOperationException("Unable to read request data for InvoiceCreated event");
+
+                        var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == data.SubscriptionId);
+                        var status = InvoiceStatus.None;
+                        Enum.TryParse(data.Status, true, out status);
+
+                        var invoice = new Entities.Invoice
+                        {
+                            Id = Guid.NewGuid(),
+                            InvoiceId = data.Id,
+                            InvoiceNumber = data.Number,
+                            AmountDue = data.AmountDue,
+                            AmountPaid = data.AmountPaid,
+                            AmountRemaining = data.AmountRemaining,
+                            BillingReason = data.BillingReason,
+                            InvoicePdfUrl = data.HostedInvoiceUrl,
+                            PeriodEnd = data.PeriodEnd,
+                            PeriodStart = data.PeriodStart,
+                            CreatedDateTime = DateTime.Now,
+                            ModifiedDateTime = DateTime.Now,
+                            Status = status,
+                            Subscription = subscription
+                        };
+
+                        _dbContext.Invoice.Add(invoice);
+                    }
+                    else if (stripeEvent.Type == Events.InvoiceUpdated)
+                    {
+                        var data = stripeEvent.Data.Object as Stripe.Invoice;
+
+                        if (data == null)
+                            throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
+
+                        var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+
+                        if (invoice == null)
+                            throw new InvalidOperationException("Invoice not found");
+
+                        var status = InvoiceStatus.None;
+                        Enum.TryParse(data.Status, true, out status);
+
+                        invoice.AmountDue = data.AmountDue;
+                        invoice.AmountPaid = data.AmountPaid;
+                        invoice.AmountRemaining = data.AmountRemaining;
+                        invoice.Status = status;
+                        invoice.ModifiedDateTime = DateTime.Now;
+                    }
+                    else if (stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
+                    {
+                        var data = stripeEvent.Data.Object as Stripe.Invoice;
+
+                        if (data == null)
+                            throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
+
+                        var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+
+                        if (invoice == null)
+                            throw new InvalidOperationException("Invoice not found");
+
+                        var status = InvoiceStatus.None;
+                        Enum.TryParse(data.Status, true, out status);
+
+                        invoice.AmountDue = data.AmountDue;
+                        invoice.AmountPaid = data.AmountPaid;
+                        invoice.AmountRemaining = data.AmountRemaining;
+                        invoice.Status = status;
+                        invoice.ModifiedDateTime = DateTime.Now;
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+                    return Ok() as IAsyncResult;
                 }
-                else if (stripeEvent.Type == Events.InvoiceUpdated)
+                catch (StripeException e)
                 {
-                    var data = stripeEvent.Data.Object as Stripe.Invoice;
-
-                    if (data == null)
-                        throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
-
-                    var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
-
-                    if (invoice == null)
-                        throw new InvalidOperationException("Invoice not found");
-
-                    var status = InvoiceStatus.None;
-                    Enum.TryParse(data.Status, true, out status);
-
-                    invoice.AmountDue = data.AmountDue;
-                    invoice.AmountPaid = data.AmountPaid;
-                    invoice.AmountRemaining = data.AmountRemaining;
-                    invoice.Status = status;
+                    return StatusCode(500) as IAsyncResult;
                 }
-                else if (stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
+                catch (InvalidOperationException e)
                 {
-                    var data = stripeEvent.Data.Object as Stripe.Invoice;
-
-                    if (data == null)
-                        throw new InvalidOperationException("Unable to read request data for InvoiceUpdated event");
-
-                    var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
-
-                    if (invoice == null)
-                        throw new InvalidOperationException("Invoice not found");
-
-                    var status = InvoiceStatus.None;
-                    Enum.TryParse(data.Status, true, out status);
-
-                    invoice.AmountDue = data.AmountDue;
-                    invoice.AmountPaid = data.AmountPaid;
-                    invoice.AmountRemaining = data.AmountRemaining;
-                    invoice.Status = status;
+                    return StatusCode(400) as IAsyncResult;
                 }
-
-                await _dbContext.SaveChangesAsync();
-                return Ok() as IAsyncResult;
+                catch (Exception e)
+                {
+                    return StatusCode(500) as IAsyncResult;
+                }
             }
-            catch (StripeException e)
-            {
-                return StatusCode(500) as IAsyncResult; 
-            }
-            catch(InvalidOperationException e)
-            {
-                return StatusCode(400) as IAsyncResult;
-            }
-            catch(Exception e)
-            {
-                return StatusCode(500) as IAsyncResult;
-            }
+            
         }
 
         public IActionResult Privacy()

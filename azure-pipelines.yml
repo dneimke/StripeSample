@@ -16,11 +16,12 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-- task: UseDotNet@2
-  displayName: 'Use .NET Core sdk 3.0.100'
+- task: DotNetCoreCLI@2
+  displayName: Restore
   inputs:
-    version: 3.0.100-preview6-012264
-    includePreviewVersions: true
+    command: restore
+    projects: '**/*.csproj'
+    verbosityRestore: Normal
 
 - task: DotNetCoreCLI@2
   displayName: Build
@@ -32,7 +33,7 @@ steps:
   displayName: Publish
   inputs:
     command: publish
-    arguments: '--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory) -r win10-x86 --self-contained'
+    arguments: '--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory)'
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: drop'

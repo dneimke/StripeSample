@@ -4,7 +4,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace StripeSample.Entities
 {
-    public class Subscription
+    public class BaseEntity
+    {
+        public DateTime CreatedDateTime { get; set; }
+        public DateTime ModifiedDateTime { get; set; }
+    }
+
+    public class Subscription : BaseEntity
     {
         public Guid Id { get; set; }
         [Required]
@@ -18,7 +24,7 @@ namespace StripeSample.Entities
         public List<Invoice> Invoices { get; set; } = new List<Invoice>();
     }
 
-    public class Invoice
+    public class Invoice : BaseEntity
     {
         public Guid Id { get; set; }
         [Required]
