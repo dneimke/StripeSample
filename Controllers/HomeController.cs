@@ -260,17 +260,20 @@ namespace StripeSample.Controllers
                 catch (StripeException e)
                 {
                     _logger.LogError(e, "StripeException occurred");
-                    return StatusCode(500) as IAsyncResult;
+                    // return StatusCode(500) as IAsyncResult;
+                    throw;
                 }
                 catch (InvalidOperationException e)
                 {
                     _logger.LogError(e, "InvalidOperationException occurred");
-                    return StatusCode(500) as IAsyncResult;
+                    // return StatusCode(500) as IAsyncResult;
+                    throw;
                 }
                 catch (Exception e)
                 {
                     _logger.LogError(e, "Exception occurred");
-                    return StatusCode(500) as IAsyncResult;
+                    // return StatusCode(500) as IAsyncResult;
+                    throw;
                 }
             }
             
