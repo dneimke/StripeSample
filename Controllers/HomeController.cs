@@ -88,16 +88,22 @@ namespace StripeSample.Controllers
                 {
                     throw new InvalidOperationException("Unable to extract event.");
                 }
+
+                _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventId} data {StripeEventPayload}", stripeEvent.Type, stripeEvent.Id, stripeEvent.Data);
             }
 
             try
             {
-                _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventId} data {StripeEventPayload}", stripeEvent.Type, stripeEvent.Id, stripeEvent.Data);
+                
 
                 if (stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionUpdated || stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
+                    _logger.LogInformation("Processing {StripeEventType} for {StripeSubscriptionId}", stripeEvent.Type, data.Id);
+
                     var subscription = await EnsureSubscriptionAsync(data.Id);
+
+                    _logger.LogInformation("Processing {StripeEventType}, have subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", stripeEvent.Type, data.Id, subscription.Id);
 
                     var state = SubscriptionState.None;
                     Enum.TryParse(data.Status, true, out state);
@@ -107,7 +113,10 @@ namespace StripeSample.Controllers
                 else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
                 {
                     var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
+                    _logger.LogInformation("Processing {StripeEventType} for {StripeSubscriptionId}", stripeEvent.Type, data.Id);
+
                     var invoice = await EnsureInvoiceAsync(data);
+                    _logger.LogInformation("Processing {StripeEventType}, have invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", stripeEvent.Type, data.Id, invoice.Id);
 
                     var status = InvoiceStatus.None;
                     Enum.TryParse(data.Status, true, out status);
@@ -161,6 +170,8 @@ namespace StripeSample.Controllers
 
             if (subscription == null)
             {
+                _logger.LogInformation("Creating subscription for {StripeSubscriptionId}", subscriptionId);
+
                 subscription = new Entities.Subscription
                 {
                     Id = Guid.NewGuid(),
@@ -173,6 +184,8 @@ namespace StripeSample.Controllers
                 };
 
                 _dbContext.Subscription.Add(subscription);
+
+                _logger.LogInformation("Created subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", subscriptionId, subscription.Id);
             }
 
             return subscription;
@@ -185,6 +198,8 @@ namespace StripeSample.Controllers
 
             if (invoice == null)
             {
+                _logger.LogInformation("Creating invoice for {StripeInvoiceId}", data.Id);
+
                 var subscription = await EnsureSubscriptionAsync(data.SubscriptionId);
 
                 var status = InvoiceStatus.None;
@@ -209,6 +224,8 @@ namespace StripeSample.Controllers
                 };
 
                 _dbContext.Invoice.Add(invoice);
+
+                _logger.LogInformation("Created invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", data.Id, invoice.Id);
             }
 
             return invoice;
