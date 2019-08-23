@@ -94,8 +94,6 @@ namespace StripeSample.Controllers
 
             try
             {
-                
-
                 if (stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionUpdated || stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
@@ -184,6 +182,7 @@ namespace StripeSample.Controllers
                 };
 
                 _dbContext.Subscription.Add(subscription);
+                await _dbContext.SaveChangesAsync();
 
                 _logger.LogInformation("Created subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", subscriptionId, subscription.Id);
             }
@@ -224,6 +223,7 @@ namespace StripeSample.Controllers
                 };
 
                 _dbContext.Invoice.Add(invoice);
+                await _dbContext.SaveChangesAsync();
 
                 _logger.LogInformation("Created invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", data.Id, invoice.Id);
             }
