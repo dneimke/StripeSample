@@ -57,7 +57,7 @@ namespace StripeSample.Services
                         }
                     }
                 },
-                SuccessUrl = $"{baseUrl}/Home/Success",
+                SuccessUrl = $"{baseUrl}/Home/Success?sessionId={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = baseUrl
             };
 

@@ -11,6 +11,7 @@ namespace StripeSample.Infrastructure.Data
         }
 
         public DbSet<User> User { get; set; }
+        public DbSet<Cart> Cart { get; set; }
         public DbSet<Subscription> Subscription { get; set; }
         public DbSet<Invoice> Invoice { get; set; }
 
@@ -23,6 +24,10 @@ namespace StripeSample.Infrastructure.Data
 
             modelBuilder.Entity<User>()
                 .HasIndex(b => b.EmailAddress)
+                .IsUnique();
+
+            modelBuilder.Entity<Cart>()
+                .HasIndex(b => b.SessionId)
                 .IsUnique();
 
             modelBuilder.Entity<Subscription>()

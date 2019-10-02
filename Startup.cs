@@ -56,7 +56,6 @@ namespace StripeSample
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
-
             app.UseMvcWithDefaultRoute();
         }
     }

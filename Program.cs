@@ -14,7 +14,6 @@ namespace StripeSample
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
                 .UseKestrel(o => o.AddServerHeader = false)
-                .UseApplicationInsights()
                 .UseStartup<Startup>();
     }
 }

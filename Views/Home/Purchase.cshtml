@@ -54,8 +54,25 @@
                   // If `redirectToCheckout` fails due to a browser or network
                   // error, display the localized error message to your customer
                   // using `result.error.message`.
+                    console.error(result.error.message);
                 });
             })
+
+
+           
+            //subscribeButton.addEventListener('click', function(event) {
+            //  event.preventDefault();
+
+            //  stripe.createToken(card).then(function(result) {
+            //    if (result.error) {
+            //      // Inform the customer that there was an error.
+            //      console.error(result.error.message);
+            //    } else {
+            //      // Send the token to your server.
+            //      console.info(result.token);
+            //    }
+            //  });
+            //});
         });
 
     </script>

@@ -11,5 +11,6 @@ namespace StripeSample.Entities
         public string EmailAddress { get; set; }
         public string CustomerId { get; set; } // Stripe Customer Id
         public List<Subscription> Subscriptions { get; set; } = new List<Subscription>();
+        public List<Cart> Carts { get; set; } = new List<Cart>();
     }
 }

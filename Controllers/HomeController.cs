@@ -49,6 +49,18 @@ namespace StripeSample.Controllers
             if (!subscriptions.Any())
             {
                 var session = await _paymentService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
+                _dbContext.Cart.Add(new Cart
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedDateTime = DateTime.Now,
+                    ModifiedDateTime = DateTime.Now,
+                    CartState = CartState.Created,
+                    SessionId = session.Id,
+                    User = _userContext.GetUser()
+                });
+
+                await _dbContext.SaveChangesAsync();
+
                 ViewBag.CheckoutSessionId = session.Id;
             }
             return View();
@@ -69,8 +81,12 @@ namespace StripeSample.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        public IActionResult Success()
+        public async Task<IActionResult> Success(string sessionId)
         {
+            var cart = await _dbContext.Cart.FirstOrDefaultAsync(e => e.SessionId == sessionId);
+
+            _logger.LogWarning("{Cart} successfully created using {CartSession}", cart, sessionId);
+
             return RedirectToAction(nameof(Purchase));
         }
 
@@ -89,19 +105,33 @@ namespace StripeSample.Controllers
                     throw new InvalidOperationException("Unable to extract event.");
                 }
 
-                _logger.LogInformation("Stripe event {StripeEventType} received {StripeEventId} data {StripeEventPayload}", stripeEvent.Type, stripeEvent.Id, stripeEvent.Data);
+                _logger.LogInformation("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload}", stripeEvent, stripeEvent.Id, stripeEvent.Data);
             }
 
             try
             {
-                if (stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionUpdated || stripeEvent.Type == Events.CustomerSubscriptionDeleted)
+                if (stripeEvent.Type == Events.CheckoutSessionCompleted)
+                {
+                    var data = ParseStripePayload<Stripe.Checkout.Session>(stripeEvent);
+                    _logger.LogInformation("Webhook: Checkout Session completed for Session {CartSession}", data.Id);
+
+                    var cart = await _dbContext.Cart.FirstOrDefaultAsync(e => e.SessionId == data.Id);
+
+                    if(cart != null)
+                    {
+                        cart.CartState = CartState.Fulfilled;
+                        cart.ModifiedDateTime = DateTime.Now;
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+                else if (stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionUpdated || stripeEvent.Type == Events.CustomerSubscriptionDeleted)
                 {
                     var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    _logger.LogInformation("Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
+                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
 
                     var subscription = await EnsureSubscriptionAsync(data.Id);
 
-                    _logger.LogInformation("Processing {StripeEventType} ({StripeEventId}), have subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id, subscription.Id);
+                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id, subscription.Id);
 
                     var state = SubscriptionState.None;
                     Enum.TryParse(data.Status, true, out state);
@@ -111,10 +141,10 @@ namespace StripeSample.Controllers
                 else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
                 {
                     var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
-                    _logger.LogInformation("Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
+                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
 
                     var invoice = await EnsureInvoiceAsync(data);
-                    _logger.LogInformation("Processing {StripeEventType} ({StripeEventId}), have invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", stripeEvent.Type, stripeEvent.Id, data.Id, invoice.Id);
+                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", stripeEvent.Type, stripeEvent.Id, data.Id, invoice.Id);
 
                     var status = InvoiceStatus.None;
                     Enum.TryParse(data.Status, true, out status);
