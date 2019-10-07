@@ -86,7 +86,6 @@ current `Customer` does not yet have a `Subscription`.
 
 The customer can then click the subscribe button to pay for a monthly Subscription.
 
-
 ## Webhooks
 
 Install the [Stripe CLI](https://github.com/stripe/stripe-cli) and run the following command to start listening.

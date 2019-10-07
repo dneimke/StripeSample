@@ -52,7 +52,8 @@ namespace StripeSample.Controllers
             if (!subscriptions.Any())
             {
                 var session = await _stripeService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
-                _dbContext.Cart.Add(new Cart
+
+                var cart = new Cart
                 {
                     Id = Guid.NewGuid(),
                     CreatedDateTime = DateTime.Now,
@@ -60,9 +61,13 @@ namespace StripeSample.Controllers
                     CartState = CartState.Created,
                     SessionId = session.Id,
                     User = _userContext.GetUser()
-                });
+                };
+
+                _dbContext.Cart.Add(cart);
 
                 await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession}", "Cart", "Created", cart.Id, cart.CartState, session.Id);
 
                 ViewBag.CheckoutSessionId = session.Id;
             }
@@ -88,7 +93,17 @@ namespace StripeSample.Controllers
         {
             var cart = await _dbContext.Cart.FirstOrDefaultAsync(e => e.SessionId == sessionId);
 
-            _logger.LogWarning("{Cart} successfully created using {CartSession}", cart, sessionId);
+            if (cart != null)
+            {
+                cart.CartState = CartState.Fulfilled;
+                cart.ModifiedDateTime = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession} {IsEcommerce}", "Cart", "Fulfilled", cart.Id, cart.CartState, cart.SessionId, true);
+            } else
+            {
+                _logger.LogWarning("{Entity} was {Action}.  Details: Unable to find a cart with {CartSession} {IsEcommerce}", "Cart", "Fulfilled", sessionId, true);
+            }
 
             return RedirectToAction(nameof(Purchase));
         }
@@ -129,6 +144,18 @@ namespace StripeSample.Controllers
                         await _dbContext.SaveChangesAsync();
                     }
                 }
+                else if (stripeEvent.Type == Events.CustomerSubscriptionCreated)
+                {
+
+                    var job = new StripeJob { Payload = json };
+
+                    _dbContext.StripeJob.Add(job);
+                    await _dbContext.SaveChangesAsync();
+
+                    _backgroundServer.Enqueue(() => ProcessSubscription(job.Id, "Created", Request.Headers["Stripe-Signature"]));
+
+                    _logger.LogInformation("Webhook: Job queued for Customer Subscription Created.  {JobId}", job.Id);
+                }
                 else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated /*|| stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionDeleted */)
                 {
 
@@ -137,7 +164,21 @@ namespace StripeSample.Controllers
                     _dbContext.StripeJob.Add(job);
                     await _dbContext.SaveChangesAsync();
 
-                    _backgroundServer.Enqueue(() => ProcessSubscriptionUpdate(job.Id));
+                    _backgroundServer.Enqueue(() => ProcessSubscription(job.Id, "Updated", Request.Headers["Stripe-Signature"]));
+
+                    _logger.LogInformation("Webhook: Job queued for Customer Subscription Update.  {JobId}", job.Id);
+                }
+                else if (stripeEvent.Type == Events.CustomerSubscriptionDeleted)
+                {
+
+                    var job = new StripeJob { Payload = json };
+
+                    _dbContext.StripeJob.Add(job);
+                    await _dbContext.SaveChangesAsync();
+
+                    _backgroundServer.Enqueue(() => ProcessSubscriptionDeleted(job.Id, Request.Headers["Stripe-Signature"]));
+
+                    _logger.LogInformation("Webhook: Job queued for Customer Subscription Deleted.  {JobId}", job.Id);
                 }
                 //else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
                 //{
@@ -157,7 +198,7 @@ namespace StripeSample.Controllers
                 //    invoice.ModifiedDateTime = DateTime.Now;
                 //}
 
-                
+
                 return Ok() as IAsyncResult;
             }
             catch (StripeException e)
@@ -186,44 +227,92 @@ namespace StripeSample.Controllers
         {
             if (!(stripeEvent.Data.Object is T data))
             {
-                _logger.LogWarning(LoggingEvents.CustomerSubscriptionCreated, "{StripeEventId} : DataObject {Object} for Type {Type}", stripeEvent.Id, stripeEvent.Data.Object, stripeEvent.Type);
+                _logger.LogWarning("Error parsing {StripeEventId} : DataObject {Object} for Type {Type}", stripeEvent.Id, stripeEvent.Data.Object, stripeEvent.Type);
                 throw new InvalidOperationException("Unable to parse request data.");
             }
 
             return data;
         }
 
-
-
-        public async Task ProcessSubscriptionUpdate(Guid jobId)
+        public async Task ProcessSubscription(Guid jobId, string action, string stripeSignature)
         {
             var secret = _stripeSettings.WebhookSecret;
             var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
 
-            var stripeEvent = EventUtility.ConstructEvent(job.Payload, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
+            Event stripeEvent = null;
 
-            if (stripeEvent == null)
+            try
             {
-                throw new InvalidOperationException("Unable to extract event.");
+
+                stripeEvent = EventUtility.ConstructEvent(job.Payload, stripeSignature, secret, throwOnApiVersionMismatch: false);
+
+                if (stripeEvent == null)
+                {
+                    throw new InvalidOperationException("Unable to extract event.");
+                }
+
+                _logger.LogDebug("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload} {IsEcommerce}", stripeEvent, stripeEvent.Id, stripeEvent.Data, true);
+            }catch(Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while processing {Entity} with {Action} {IsEcommerce}", "Subscription", action, true);
+                throw;
             }
 
-            _logger.LogDebug("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload}", stripeEvent, stripeEvent.Id, stripeEvent.Data);
 
             var stripeSubscription = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-            _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", job.MessageType, job.Id, stripeSubscription.Id);
-
             var subscription = await EnsureSubscriptionAsync(stripeSubscription.Id);
-            await EnsureInvoiceAsync(stripeSubscription.LatestInvoiceId, subscription);
-
-            _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", stripeEvent.Type, stripeEvent.Id, stripeSubscription.Id, subscription.Id);
 
             var state = SubscriptionState.None;
             Enum.TryParse(stripeSubscription.Status, true, out state);
             subscription.State = state;
             subscription.ModifiedDateTime = DateTime.Now;
             await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("{Entity} was {Action}.  Details: {StripeSubscriptionId} {SubscriptionId} {SubscriptionState} {LatestInvoiceId} {IsEcommerce}", "Subscription", action, stripeSubscription.Id, subscription.Id, state, stripeSubscription.LatestInvoiceId, true);
+
+            await EnsureInvoiceAsync(stripeSubscription.LatestInvoiceId, subscription);
         }
 
+
+        public async Task ProcessSubscriptionDeleted(Guid jobId, string stripeSignature)
+        {
+            var secret = _stripeSettings.WebhookSecret;
+            var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
+
+            Event stripeEvent = null;
+
+            try
+            {
+
+                stripeEvent = EventUtility.ConstructEvent(job.Payload, stripeSignature, secret, throwOnApiVersionMismatch: false);
+
+                if (stripeEvent == null)
+                {
+                    throw new InvalidOperationException("Unable to extract event.");
+                }
+
+                _logger.LogDebug("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload}", stripeEvent, stripeEvent.Id, stripeEvent.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while processing {Entity} with {Action} {IsEcommerce}", "Subscription", "Deleted", true);
+                throw;
+            }
+
+            var stripeSubscription = ParseStripePayload<Stripe.Subscription>(stripeEvent);
+            var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(x => x.SubscriptionId == stripeSubscription.Id);
+
+            if(subscription != null)
+            {
+                var state = SubscriptionState.None;
+                Enum.TryParse(stripeSubscription.Status, true, out state);
+                subscription.State = state;
+                subscription.ModifiedDateTime = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("{Entity} was {Action}.  Details: {StripeSubscriptionId} {SubscriptionId} {SubscriptionState} {LatestInvoiceId} {IsEcommerce}", "Subscription", "Deleted", stripeSubscription.Id, subscription.Id, state, stripeSubscription.LatestInvoiceId, true);
+            }
+        }
 
 
         private async Task<Entities.Subscription> EnsureSubscriptionAsync(string subscriptionId)
@@ -248,7 +337,7 @@ namespace StripeSample.Controllers
                 _dbContext.Subscription.Add(subscription);
                 await _dbContext.SaveChangesAsync();
 
-                _logger.LogInformation("Created subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", subscriptionId, subscription.Id);
+                _logger.LogInformation("Created subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId} {IsEcommerce}", subscriptionId, subscription.Id, true);
             }
 
             return subscription;
@@ -288,13 +377,13 @@ namespace StripeSample.Controllers
 
                 _dbContext.Invoice.Add(invoice);
 
-                _logger.LogInformation("Created invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", invoiceId, invoice.Id);
+                _logger.LogInformation("Created invoice for {StripeInvoiceId} with {ApplicationInvoiceId} {IsEcommerce}", invoiceId, invoice.Id, true);
 
             } else
             {
                 invoice.Status = status;
 
-                _logger.LogInformation("Updated invoice for {StripeInvoiceId} with {ApplicationInvoiceId} status is {StripeStatus}", invoiceId, invoice.Id, status);
+                _logger.LogInformation("Updated invoice for {StripeInvoiceId} with {ApplicationInvoiceId} status is {StripeStatus} {IsEcommerce}", invoiceId, invoice.Id, status, true);
             }
 
             await _dbContext.SaveChangesAsync();
