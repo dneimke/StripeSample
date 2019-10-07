@@ -14,6 +14,7 @@ namespace StripeSample.Infrastructure.Data
         public DbSet<Cart> Cart { get; set; }
         public DbSet<Subscription> Subscription { get; set; }
         public DbSet<Invoice> Invoice { get; set; }
+        public DbSet<StripeJob> StripeJob { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ using Stripe;
 using StripeSample.Infrastructure;
 using StripeSample.Infrastructure.Data;
 using StripeSample.Models;
+using System;
 
 namespace StripeSample
 {
@@ -31,13 +33,16 @@ namespace StripeSample
             var connection = Configuration.GetConnectionString("SqlConnection");
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connection));
 
+            services.AddHangfire(x => x.UseSqlServerStorage(connection));
+            services.AddHangfireServer();
+
             services.AddTransient<UserContext>();
 
             services.AddMvc();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, Microsoft.AspNetCore.Hosting.IHostingEnvironment env, ApplicationDbContext dbContext)
+        public void Configure(IApplicationBuilder app, Microsoft.AspNetCore.Hosting.IHostingEnvironment env, ApplicationDbContext dbContext, IBackgroundJobClient backgroundJobs)
         {
             dbContext.Database.Migrate();
 
@@ -53,6 +58,9 @@ namespace StripeSample
 
             var privateKey = Configuration.GetSection("Stripe")["PrivateKey"];
             StripeConfiguration.ApiKey = privateKey;
+
+            app.UseHangfireDashboard();
+            // backgroundJobs.Enqueue(() => Console.WriteLine("Hangfire Server is running!"));
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();

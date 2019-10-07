@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Hangfire;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -19,18 +20,20 @@ namespace StripeSample.Controllers
     public class HomeController : Controller
     {
         private readonly ApplicationDbContext _dbContext;
-        private readonly StripePaymentService _paymentService;
+        private readonly StripeService _stripeService;
         private readonly UserContext _userContext;
         private readonly ILogger _logger;
+        private readonly IBackgroundJobClient _backgroundServer;
         private readonly StripeSettings _stripeSettings;
         private readonly TestData _testData;
 
-        public HomeController(ApplicationDbContext dbContext, StripePaymentService paymentService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings, ILogger<HomeController> logger)
+        public HomeController(ApplicationDbContext dbContext, StripeService stripeService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings, ILogger<HomeController> logger, IBackgroundJobClient backgroundServer)
         {
             _dbContext = dbContext;
-            _paymentService = paymentService;
+            _stripeService = stripeService;
             _userContext = userContext;
             _logger = logger;
+            _backgroundServer = backgroundServer;
             _stripeSettings = stripeSettings.Value;
             _testData = testData.Value;
         }
@@ -42,13 +45,13 @@ namespace StripeSample.Controllers
 
         public async Task<IActionResult> Purchase()
         {
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
             ViewBag.Subscriptions = subscriptions;
             ViewBag.HasSubscription = subscriptions.Any();
 
             if (!subscriptions.Any())
             {
-                var session = await _paymentService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
+                var session = await _stripeService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
                 _dbContext.Cart.Add(new Cart
                 {
                     Id = Guid.NewGuid(),
@@ -68,7 +71,7 @@ namespace StripeSample.Controllers
 
         public async Task<IActionResult> Subscription()
         {
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
             ViewBag.HasSubscription = subscriptions.Any();
             return View();
         }
@@ -76,8 +79,8 @@ namespace StripeSample.Controllers
         [HttpPost]
         public async Task<IActionResult> CancelSubscription()
         {
-            var subscriptions = await _paymentService.ListSubscriptions(_userContext.CustomerId);
-            await _paymentService.CancelSubscription(subscriptions[0].Id);
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
+            await _stripeService.CancelSubscription(subscriptions[0].Id);
             return RedirectToAction(nameof(Index));
         }
 
@@ -95,18 +98,20 @@ namespace StripeSample.Controllers
             Event stripeEvent;
 
             var secret = _stripeSettings.WebhookSecret;
+            string json = "";
+
             using (var stream = new StreamReader(HttpContext.Request.Body))
             {
-                var json = await stream.ReadToEndAsync();
+                json = await stream.ReadToEndAsync();
                 stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
 
-                if(stripeEvent == null)
+                if (stripeEvent == null)
                 {
                     throw new InvalidOperationException("Unable to extract event.");
                 }
-
-                _logger.LogInformation("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload}", stripeEvent, stripeEvent.Id, stripeEvent.Data);
             }
+
+            
 
             try
             {
@@ -124,39 +129,35 @@ namespace StripeSample.Controllers
                         await _dbContext.SaveChangesAsync();
                     }
                 }
-                else if (stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionUpdated || stripeEvent.Type == Events.CustomerSubscriptionDeleted)
+                else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated /*|| stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionDeleted */)
                 {
-                    var data = ParseStripePayload<Stripe.Subscription>(stripeEvent);
-                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
 
-                    var subscription = await EnsureSubscriptionAsync(data.Id);
+                    var job = new StripeJob { Payload = json };
 
-                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id, subscription.Id);
+                    _dbContext.StripeJob.Add(job);
+                    await _dbContext.SaveChangesAsync();
 
-                    var state = SubscriptionState.None;
-                    Enum.TryParse(data.Status, true, out state);
-                    subscription.State = state;
-                    subscription.ModifiedDateTime = DateTime.Now;
+                    _backgroundServer.Enqueue(() => ProcessSubscriptionUpdate(job.Id));
                 }
-                else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
-                {
-                    var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
-                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
+                //else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
+                //{
+                //    var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
+                //    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
 
-                    var invoice = await EnsureInvoiceAsync(data);
-                    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", stripeEvent.Type, stripeEvent.Id, data.Id, invoice.Id);
+                //    var invoice = await EnsureInvoiceAsync(data);
+                //    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", stripeEvent.Type, stripeEvent.Id, data.Id, invoice.Id);
 
-                    var status = InvoiceStatus.None;
-                    Enum.TryParse(data.Status, true, out status);
+                //    var status = InvoiceStatus.None;
+                //    Enum.TryParse(data.Status, true, out status);
 
-                    invoice.AmountDue = data.AmountDue;
-                    invoice.AmountPaid = data.AmountPaid;
-                    invoice.AmountRemaining = data.AmountRemaining;
-                    invoice.Status = status;
-                    invoice.ModifiedDateTime = DateTime.Now;
-                }
+                //    invoice.AmountDue = data.AmountDue;
+                //    invoice.AmountPaid = data.AmountPaid;
+                //    invoice.AmountRemaining = data.AmountRemaining;
+                //    invoice.Status = status;
+                //    invoice.ModifiedDateTime = DateTime.Now;
+                //}
 
-                await _dbContext.SaveChangesAsync();
+                
                 return Ok() as IAsyncResult;
             }
             catch (StripeException e)
@@ -192,6 +193,39 @@ namespace StripeSample.Controllers
             return data;
         }
 
+
+
+        private async Task ProcessSubscriptionUpdate(Guid jobId)
+        {
+            var secret = _stripeSettings.WebhookSecret;
+            var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
+
+            var stripeEvent = EventUtility.ConstructEvent(job.Payload, Request.Headers["Stripe-Signature"], secret, throwOnApiVersionMismatch: false);
+
+            if (stripeEvent == null)
+            {
+                throw new InvalidOperationException("Unable to extract event.");
+            }
+
+            _logger.LogDebug("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload}", stripeEvent, stripeEvent.Id, stripeEvent.Data);
+
+            var stripeSubscription = ParseStripePayload<Stripe.Subscription>(stripeEvent);
+            _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", job.MessageType, job.Id, stripeSubscription.Id);
+
+            var subscription = await EnsureSubscriptionAsync(stripeSubscription.Id);
+            await EnsureInvoiceAsync(stripeSubscription.LatestInvoiceId, subscription);
+
+            _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId}", stripeEvent.Type, stripeEvent.Id, stripeSubscription.Id, subscription.Id);
+
+            var state = SubscriptionState.None;
+            Enum.TryParse(stripeSubscription.Status, true, out state);
+            subscription.State = state;
+            subscription.ModifiedDateTime = DateTime.Now;
+            await _dbContext.SaveChangesAsync();
+        }
+
+
+
         private async Task<Entities.Subscription> EnsureSubscriptionAsync(string subscriptionId)
         {
             var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == subscriptionId);
@@ -221,31 +255,31 @@ namespace StripeSample.Controllers
         }
 
 
-        private async Task<Entities.Invoice> EnsureInvoiceAsync(Stripe.Invoice data)
+        private async Task<Entities.Invoice> EnsureInvoiceAsync(string invoiceId, Entities.Subscription subscription)
         {
-            var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == data.Id);
+            var invoice = await _dbContext.Invoice.FirstOrDefaultAsync(e => e.InvoiceId == invoiceId);
+
+            var stripeInvoice = await _stripeService.GetInvoice(invoiceId);
+            var status = InvoiceStatus.None;
+            Enum.TryParse(stripeInvoice.Status, true, out status);
+
 
             if (invoice == null)
             {
-                _logger.LogInformation("Creating invoice for {StripeInvoiceId}", data.Id);
-
-                var subscription = await EnsureSubscriptionAsync(data.SubscriptionId);
-
-                var status = InvoiceStatus.None;
-                Enum.TryParse(data.Status, true, out status);
+                _logger.LogInformation("Creating invoice for {StripeInvoiceId}", invoiceId);
 
                 invoice = new Entities.Invoice
                 {
                     Id = Guid.NewGuid(),
-                    InvoiceId = data.Id,
-                    InvoiceNumber = data.Number,
-                    AmountDue = data.AmountDue,
-                    AmountPaid = data.AmountPaid,
-                    AmountRemaining = data.AmountRemaining,
-                    BillingReason = data.BillingReason,
-                    InvoicePdfUrl = data.HostedInvoiceUrl,
-                    PeriodEnd = data.PeriodEnd,
-                    PeriodStart = data.PeriodStart,
+                    InvoiceId = stripeInvoice.Id,
+                    InvoiceNumber = stripeInvoice.Number,
+                    AmountDue = stripeInvoice.AmountDue,
+                    AmountPaid = stripeInvoice.AmountPaid,
+                    AmountRemaining = stripeInvoice.AmountRemaining,
+                    BillingReason = stripeInvoice.BillingReason,
+                    InvoicePdfUrl = stripeInvoice.HostedInvoiceUrl,
+                    PeriodEnd = stripeInvoice.PeriodEnd,
+                    PeriodStart = stripeInvoice.PeriodStart,
                     CreatedDateTime = DateTime.Now,
                     ModifiedDateTime = DateTime.Now,
                     Status = status,
@@ -253,11 +287,17 @@ namespace StripeSample.Controllers
                 };
 
                 _dbContext.Invoice.Add(invoice);
-                await _dbContext.SaveChangesAsync();
 
-                _logger.LogInformation("Created invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", data.Id, invoice.Id);
+                _logger.LogInformation("Created invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", invoiceId, invoice.Id);
+
+            } else
+            {
+                invoice.Status = status;
+
+                _logger.LogInformation("Updated invoice for {StripeInvoiceId} with {ApplicationInvoiceId} status is {StripeStatus}", invoiceId, invoice.Id, status);
             }
 
+            await _dbContext.SaveChangesAsync();
             return invoice;
         }
 

@@ -11,12 +11,13 @@ namespace StripeSample.Infrastructure
     {
         public static void AddStripe(this IServiceCollection services)
         {
-            services.AddTransient<StripePaymentService>();
+            services.AddTransient<StripeService>();
             services.AddTransient<ProductService>();
             services.AddTransient<PlanService>();
             services.AddTransient<CustomerService>();
             services.AddTransient<SubscriptionService>();
             services.AddTransient<SessionService>();
+            services.AddTransient<InvoiceService>();
         }
     }
 }

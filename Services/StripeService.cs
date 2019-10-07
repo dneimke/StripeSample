@@ -10,8 +10,9 @@ using System.Threading.Tasks;
 
 namespace StripeSample.Services
 {
-    public class StripePaymentService
+    public class StripeService
     {
+        private readonly InvoiceService _invoiceService;
         private readonly CustomerService _customerService;
         //private readonly ProductService _productService;
         //private readonly PlanService _planService;
@@ -19,8 +20,9 @@ namespace StripeSample.Services
         private readonly SessionService _sessionService;
         private readonly IConfiguration _configuration;
 
-        public StripePaymentService(CustomerService customerService, SubscriptionService subscriptionService, SessionService sessionService, IConfiguration configuration)
+        public StripeService(InvoiceService invoiceService, CustomerService customerService, SubscriptionService subscriptionService, SessionService sessionService, IConfiguration configuration)
         {
+            _invoiceService = invoiceService;
             _customerService = customerService;
             _subscriptionService = subscriptionService;
             _sessionService = sessionService;
@@ -84,6 +86,18 @@ namespace StripeSample.Services
 
             await _subscriptionService.CancelAsync(subscriptionId, options);
         }
+
+        public async Task<Invoice> GetInvoice(string invoiceId)
+        {
+            var options = new InvoiceGetOptions
+            {
+
+            };
+
+            var invoice = await _invoiceService.GetAsync(invoiceId, options);
+            return invoice;
+        }
+
 
 
 
