@@ -195,7 +195,7 @@ namespace StripeSample.Controllers
 
 
 
-        private async Task ProcessSubscriptionUpdate(Guid jobId)
+        public async Task ProcessSubscriptionUpdate(Guid jobId)
         {
             var secret = _stripeSettings.WebhookSecret;
             var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
