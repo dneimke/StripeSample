@@ -180,23 +180,19 @@ namespace StripeSample.Controllers
 
                     _logger.LogInformation("Webhook: Job queued for Customer Subscription Deleted.  {JobId}", job.Id);
                 }
-                //else if (stripeEvent.Type == Events.InvoiceUpdated || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed)
-                //{
-                //    var data = ParseStripePayload<Stripe.Invoice>(stripeEvent);
-                //    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}) for {StripeSubscriptionId}", stripeEvent.Type, stripeEvent.Id, data.Id);
+                else if (stripeEvent.Type == Events.InvoiceUpdated /* || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed*/)
+                {
 
-                //    var invoice = await EnsureInvoiceAsync(data);
-                //    _logger.LogInformation("Webhook: Processing {StripeEventType} ({StripeEventId}), have invoice for {StripeInvoiceId} with {ApplicationInvoiceId}", stripeEvent.Type, stripeEvent.Id, data.Id, invoice.Id);
+                    var job = new StripeJob { Payload = json };
 
-                //    var status = InvoiceStatus.None;
-                //    Enum.TryParse(data.Status, true, out status);
+                    _dbContext.StripeJob.Add(job);
+                    await _dbContext.SaveChangesAsync();
 
-                //    invoice.AmountDue = data.AmountDue;
-                //    invoice.AmountPaid = data.AmountPaid;
-                //    invoice.AmountRemaining = data.AmountRemaining;
-                //    invoice.Status = status;
-                //    invoice.ModifiedDateTime = DateTime.Now;
-                //}
+                    _backgroundServer.Schedule(() => ProcessInvoice(job.Id, Request.Headers["Stripe-Signature"]),
+                        TimeSpan.FromMinutes(1));
+
+                    _logger.LogInformation("Webhook: Job queued for Invoice Updated.  {JobId}", job.Id);
+                }
 
 
                 return Ok() as IAsyncResult;
@@ -243,7 +239,6 @@ namespace StripeSample.Controllers
 
             try
             {
-
                 stripeEvent = EventUtility.ConstructEvent(job.Payload, stripeSignature, secret, throwOnApiVersionMismatch: false);
 
                 if (stripeEvent == null)
@@ -271,6 +266,37 @@ namespace StripeSample.Controllers
             _logger.LogInformation("{Entity} was {Action}.  Details: {StripeSubscriptionId} {SubscriptionId} {SubscriptionState} {LatestInvoiceId} {IsEcommerce}", "Subscription", action, stripeSubscription.Id, subscription.Id, state, stripeSubscription.LatestInvoiceId, true);
 
             await EnsureInvoiceAsync(stripeSubscription.LatestInvoiceId, subscription);
+        }
+
+        public async Task ProcessInvoice(Guid jobId, string stripeSignature)
+        {
+            var secret = _stripeSettings.WebhookSecret;
+            var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
+
+            Event stripeEvent = null;
+
+            try
+            {
+                stripeEvent = EventUtility.ConstructEvent(job.Payload, stripeSignature, secret, throwOnApiVersionMismatch: false);
+
+                if (stripeEvent == null)
+                {
+                    throw new InvalidOperationException("Unable to extract event.");
+                }
+
+                _logger.LogDebug("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload} {IsEcommerce}", stripeEvent, stripeEvent.Id, stripeEvent.Data, true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while processing {Entity} {IsEcommerce}", "Invoice", true);
+                throw;
+            }
+
+            var stripeInvoice = ParseStripePayload<Stripe.Invoice>(stripeEvent);
+            var subscription = await EnsureSubscriptionAsync(stripeInvoice.SubscriptionId);
+            var invoice = await EnsureInvoiceAsync(stripeInvoice.Id, subscription);
+
+            _logger.LogInformation("{Entity} was {Action}.  Details: {SubscriptionId} {InvoiceId} {InvoiceStatus} {IsEcommerce}", "Invoice", "Updated", subscription.Id, invoice.Id, invoice.Status, true);
         }
 
 
@@ -351,7 +377,6 @@ namespace StripeSample.Controllers
             var stripeInvoice = await _stripeService.GetInvoice(invoiceId);
             var status = InvoiceStatus.None;
             Enum.TryParse(stripeInvoice.Status, true, out status);
-
 
             if (invoice == null)
             {
