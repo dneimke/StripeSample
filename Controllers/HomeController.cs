@@ -180,7 +180,7 @@ namespace StripeSample.Controllers
 
                     _logger.LogInformation("Webhook: Job queued for Customer Subscription Deleted.  {JobId}", job.Id);
                 }
-                else if (stripeEvent.Type == Events.InvoiceUpdated /* || stripeEvent.Type == Events.InvoicePaymentSucceeded || stripeEvent.Type == Events.InvoicePaymentFailed*/)
+                else if (stripeEvent.Type == Events.InvoiceFinalized || stripeEvent.Type == Events.InvoicePaymentSucceeded)
                 {
 
                     var job = new StripeJob { Payload = json };
@@ -188,10 +188,23 @@ namespace StripeSample.Controllers
                     _dbContext.StripeJob.Add(job);
                     await _dbContext.SaveChangesAsync();
 
-                    _backgroundServer.Schedule(() => ProcessInvoice(job.Id, Request.Headers["Stripe-Signature"]),
+                    _backgroundServer.Schedule(() => ProcessInvoice(job.Id, stripeEvent.Type.ToString(), Request.Headers["Stripe-Signature"]),
                         TimeSpan.FromMinutes(1));
 
-                    _logger.LogInformation("Webhook: Job queued for Invoice Updated.  {JobId}", job.Id);
+                    _logger.LogInformation($"Webhook: Job queued for Invoice {stripeEvent.Type}.  {{JobId}}", job.Id);
+                }
+                else if (stripeEvent.Type == Events.InvoicePaymentFailed)
+                {
+
+                    var job = new StripeJob { Payload = json };
+
+                    _dbContext.StripeJob.Add(job);
+                    await _dbContext.SaveChangesAsync();
+
+                    _backgroundServer.Schedule(() => ProcessInvoiceFailed(job.Id, Request.Headers["Stripe-Signature"]),
+                        TimeSpan.FromMinutes(1));
+
+                    _logger.LogInformation($"Webhook: Job queued for Invoice {stripeEvent.Type}.  {{JobId}}", job.Id);
                 }
 
 
@@ -268,7 +281,7 @@ namespace StripeSample.Controllers
             await EnsureInvoiceAsync(stripeSubscription.LatestInvoiceId, subscription);
         }
 
-        public async Task ProcessInvoice(Guid jobId, string stripeSignature)
+        public async Task ProcessInvoice(Guid jobId, string action, string stripeSignature)
         {
             var secret = _stripeSettings.WebhookSecret;
             var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
@@ -296,7 +309,39 @@ namespace StripeSample.Controllers
             var subscription = await EnsureSubscriptionAsync(stripeInvoice.SubscriptionId);
             var invoice = await EnsureInvoiceAsync(stripeInvoice.Id, subscription);
 
-            _logger.LogInformation("{Entity} was {Action}.  Details: {SubscriptionId} {InvoiceId} {InvoiceStatus} {IsEcommerce}", "Invoice", "Updated", subscription.Id, invoice.Id, invoice.Status, true);
+            _logger.LogInformation("{Entity} was {Action}.  Details: {SubscriptionId} {InvoiceId} {InvoiceStatus} {IsEcommerce}", "Invoice", action, subscription.Id, invoice.Id, invoice.Status, true);
+        }
+
+
+        public async Task ProcessInvoiceFailed(Guid jobId, string stripeSignature)
+        {
+            var secret = _stripeSettings.WebhookSecret;
+            var job = await _dbContext.StripeJob.FirstOrDefaultAsync(x => x.Id == jobId);
+
+            Event stripeEvent = null;
+
+            try
+            {
+                stripeEvent = EventUtility.ConstructEvent(job.Payload, stripeSignature, secret, throwOnApiVersionMismatch: false);
+
+                if (stripeEvent == null)
+                {
+                    throw new InvalidOperationException("Unable to extract event.");
+                }
+
+                _logger.LogDebug("Stripe event {StripeEvent} received {StripeEventId} data {StripeEventPayload} {IsEcommerce}", stripeEvent, stripeEvent.Id, stripeEvent.Data, true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while processing {Entity} {IsEcommerce}", "Invoice", true);
+                throw;
+            }
+
+            var stripeInvoice = ParseStripePayload<Stripe.Invoice>(stripeEvent);
+            var subscription = await EnsureSubscriptionAsync(stripeInvoice.SubscriptionId);
+            var invoice = await EnsureInvoiceAsync(stripeInvoice.Id, subscription);
+
+            _logger.LogInformation("{Entity} was {Action}.  Details: {SubscriptionId} {InvoiceId} {InvoiceStatus} {IsEcommerce}", "Invoice", "Failed", subscription.Id, invoice.Id, invoice.Status, true);
         }
 
 
