@@ -23,8 +23,8 @@
             foreach (var invoice in Model)
             {
 
-                var start = invoice.Lines.Data.FirstOrDefault().Period.Start.Value.ToString("MMM yy",  CultureInfo.CurrentCulture);
-                var end = invoice.Lines.Data.FirstOrDefault().Period.End.Value.ToString("MMM yy",  CultureInfo.CurrentCulture);
+                var start = invoice.Lines.Data.FirstOrDefault().Period.Start.Value.ToString("dd MMM yy",  CultureInfo.CurrentCulture);
+                var end = invoice.Lines.Data.FirstOrDefault().Period.End.Value.ToString("dd MMM yy",  CultureInfo.CurrentCulture);
         <tr>
             <td>@invoice.Number</td>
             <td>@($"{start} to {end}")</td>
