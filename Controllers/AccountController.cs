@@ -38,13 +38,11 @@ namespace StripeSample.Controllers
 
         public async Task<IActionResult> Subscriptions()
         {
-            var subscription = await _dbContext.Subscription.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.User.Id == _userContext.Id);
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
 
-            if(subscription != null)
+            if (subscriptions != null)
             {
-                var stripeSubscription = await _stripeService.ListSubscriptions(_userContext.CustomerId);
-                return View(stripeSubscription.FirstOrDefault());
+                return View(subscriptions.FirstOrDefault());
             }
 
             return View();
@@ -52,12 +50,12 @@ namespace StripeSample.Controllers
 
         public async Task<IActionResult> Invoices()
         {
-            var subscription = await _dbContext.Subscription.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.User.Id == _userContext.Id);
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
 
-            if (subscription != null)
+            if (subscriptions != null)
             {
-                var invoices = await _stripeService.ListInvoices(subscription.SubscriptionId);
+                var subscription = subscriptions.First();
+                var invoices = await _stripeService.ListInvoices(subscription.Id);
                 return View(invoices);
             }
 
