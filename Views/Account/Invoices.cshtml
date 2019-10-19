@@ -1,0 +1,46 @@
+﻿@model List<Stripe.Invoice>
+@using System.Globalization
+@{
+    ViewData["Title"] = "Invoices";
+}
+
+<h1>Invoices</h1>
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Number</th>
+            <th>Period</th>
+            <th>Amount</th>
+            <th>Amount Paid</th>
+            <th>Amount Owing</th>
+            <th>View</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model != null)
+        {
+            foreach (var invoice in Model)
+            {
+
+                var start = invoice.Lines.Data.FirstOrDefault().Period.Start.Value.ToString("MMM yy",  CultureInfo.CurrentCulture);
+                var end = invoice.Lines.Data.FirstOrDefault().Period.End.Value.ToString("MMM yy",  CultureInfo.CurrentCulture);
+        <tr>
+            <td>@invoice.Number</td>
+            <td>@($"{start} to {end}")</td>
+            <td>@((invoice.AmountDue / 100).ToString("c", CultureInfo.CurrentCulture))</td>
+            <td>@((invoice.AmountPaid / 100).ToString("c", CultureInfo.CurrentCulture))</td>
+            <td>@((invoice.AmountRemaining / 100).ToString("c", CultureInfo.CurrentCulture))</td>
+            <td><a class="nav-link" href="@invoice.HostedInvoiceUrl" target="_blank">View</a></td>
+        </tr>
+            }
+
+        }
+        else
+        {
+            <tr>
+                <td colspan="5">You have no invoices to display</td>
+            </tr>
+        }
+    </tbody>
+</table>

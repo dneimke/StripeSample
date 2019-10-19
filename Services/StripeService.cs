@@ -14,8 +14,7 @@ namespace StripeSample.Services
     {
         private readonly InvoiceService _invoiceService;
         private readonly CustomerService _customerService;
-        //private readonly ProductService _productService;
-        //private readonly PlanService _planService;
+        
         private readonly SubscriptionService _subscriptionService;
         private readonly SessionService _sessionService;
         private readonly IConfiguration _configuration;
@@ -73,6 +72,8 @@ namespace StripeSample.Services
                 CustomerId = customerId
             };
 
+            options.AddExpand("data.plan.product");
+
             var subscriptions = await _subscriptionService.ListAsync(options);
             return subscriptions.Data;
         }
@@ -85,6 +86,18 @@ namespace StripeSample.Services
             };
 
             await _subscriptionService.CancelAsync(subscriptionId, options);
+        }
+
+        public async Task<List<Invoice>> ListInvoices(string subscriptionId)
+        {
+            var options = new InvoiceListOptions
+            {
+                Limit = 20,
+                SubscriptionId = subscriptionId
+            };
+
+            var invoices = await _invoiceService.ListAsync(options);
+            return invoices.Data;
         }
 
         public async Task<Invoice> GetInvoice(string invoiceId)

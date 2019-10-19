@@ -156,9 +156,8 @@ namespace StripeSample.Controllers
 
                     _logger.LogInformation("Webhook: Job queued for Customer Subscription Created.  {JobId}", job.Id);
                 }
-                else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated /*|| stripeEvent.Type == Events.CustomerSubscriptionCreated || stripeEvent.Type == Events.CustomerSubscriptionDeleted */)
+                else if (stripeEvent.Type == Events.CustomerSubscriptionUpdated)
                 {
-
                     var job = new StripeJob { Payload = json };
 
                     _dbContext.StripeJob.Add(job);

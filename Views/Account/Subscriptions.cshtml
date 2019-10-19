@@ -1,0 +1,39 @@
+﻿@model Stripe.Subscription
+@using System.Globalization
+@{
+    ViewData["Title"] = "Subscriptions";
+}
+
+<h1>Subscriptions</h1>
+
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Plan</th>
+            <th>Product</th>
+            <th>Monthly Cost</th>
+            <th>Invoices</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model != null)
+        {
+
+        <tr>
+            <td>@Model.Plan.Nickname</td>
+            <td>@Model.Plan.Product.Name</td>
+            <td>@((Model.Plan.Amount / 100).Value.ToString("c", CultureInfo.CurrentCulture))</td>
+            <td><a class="nav-link text-dark" asp-controller="Account" asp-action="Invoices">View</a></td>
+        </tr>
+        }
+        else
+        {
+            <tr>
+                <td colspan="3">You have no subscriptions</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
