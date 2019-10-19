@@ -389,6 +389,10 @@ namespace StripeSample.Controllers
         {
             var subscription = await _dbContext.Subscription.FirstOrDefaultAsync(e => e.SubscriptionId == subscriptionId);
 
+            var stripeSubscription = await _stripeService.GetSubscription(subscriptionId);
+            var status = SubscriptionState.None;
+            Enum.TryParse(stripeSubscription.Status, true, out status);
+
             if (subscription == null)
             {
                 _logger.LogInformation("Creating subscription for {StripeSubscriptionId}", subscriptionId);
@@ -405,10 +409,16 @@ namespace StripeSample.Controllers
                 };
 
                 _dbContext.Subscription.Add(subscription);
-                await _dbContext.SaveChangesAsync();
+                
 
                 _logger.LogInformation("Created subscription for {StripeSubscriptionId} with {ApplicationSubscriptionId} {IsEcommerce}", subscriptionId, subscription.Id, true);
+            } else
+            {
+                subscription.State = status;
+                subscription.ModifiedDateTime = DateTime.Now;
             }
+
+            await _dbContext.SaveChangesAsync();
 
             return subscription;
         }
@@ -450,7 +460,12 @@ namespace StripeSample.Controllers
 
             } else
             {
+                invoice.AmountDue = stripeInvoice.AmountDue;
+                invoice.AmountPaid = stripeInvoice.AmountPaid;
+                invoice.AmountRemaining = stripeInvoice.AmountRemaining;
+                invoice.InvoicePdfUrl = stripeInvoice.HostedInvoiceUrl;
                 invoice.Status = status;
+                invoice.ModifiedDateTime = DateTime.Now;
 
                 _logger.LogInformation("Updated invoice for {StripeInvoiceId} with {ApplicationInvoiceId} status is {StripeStatus} {IsEcommerce}", invoiceId, invoice.Id, status, true);
             }

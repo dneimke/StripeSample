@@ -53,8 +53,9 @@ namespace StripeSample.Entities
     {
         None = 0,
         Active = 1,
-        PastDue = 2,
-        Canceled = 3,
+        Past_Due = 2,
+        Incomplete_Expired = 3,
+        Trialing = 4
     }
 
     public enum InvoiceStatus

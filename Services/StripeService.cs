@@ -78,6 +78,17 @@ namespace StripeSample.Services
             return subscriptions.Data;
         }
 
+        public async Task<Subscription> GetSubscription(string subscriptionId)
+        {
+            var options = new SubscriptionGetOptions
+            {
+                
+            };
+
+            var subscription = await _subscriptionService.GetAsync(subscriptionId, options);
+            return subscription;
+        }
+
         public async Task CancelSubscription(string subscriptionId)
         {
             var options = new SubscriptionCancelOptions
