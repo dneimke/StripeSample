@@ -52,7 +52,7 @@ namespace StripeSample.Controllers
         {
             var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
 
-            if (subscriptions != null)
+            if (subscriptions != null && subscriptions.Count > 0)
             {
                 var subscription = subscriptions.First();
                 var invoices = await _stripeService.ListInvoices(subscription.Id);
@@ -60,6 +60,66 @@ namespace StripeSample.Controllers
             }
 
             return View();
+        }
+
+        public async Task<IActionResult> Plans()
+        {
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
+            ViewBag.HasSubscription = subscriptions.Any();
+
+            if (!subscriptions.Any())
+            {
+                var session = await _stripeService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
+
+                var cart = new Cart
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedDateTime = DateTime.Now,
+                    ModifiedDateTime = DateTime.Now,
+                    CartState = CartState.Created,
+                    SessionId = session.Id,
+                    User = _userContext.GetUser()
+                };
+
+                _dbContext.Cart.Add(cart);
+
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession}", "Cart", "Created", cart.Id, cart.CartState, session.Id);
+
+                ViewBag.CheckoutSessionId = session.Id;
+            }
+
+            return View();
+        }
+
+
+        [HttpPost]
+        public async Task<IActionResult> CancelSubscription()
+        {
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
+            await _stripeService.CancelSubscription(subscriptions[0].Id);
+            return RedirectToAction(nameof(Plans));
+        }
+
+        public async Task<IActionResult> Success(string sessionId)
+        {
+            var cart = await _dbContext.Cart.FirstOrDefaultAsync(e => e.SessionId == sessionId);
+
+            if (cart != null)
+            {
+                cart.CartState = CartState.Fulfilled;
+                cart.ModifiedDateTime = DateTime.Now;
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession} {IsEcommerce}", "Cart", "Fulfilled", cart.Id, cart.CartState, cart.SessionId, true);
+            }
+            else
+            {
+                _logger.LogWarning("{Entity} was {Action}.  Details: Unable to find a cart with {CartSession} {IsEcommerce}", "Cart", "Fulfilled", sessionId, true);
+            }
+
+            return RedirectToAction(nameof(Subscriptions));
         }
 
     }
