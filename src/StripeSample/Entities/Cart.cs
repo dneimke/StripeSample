@@ -8,7 +8,6 @@ namespace StripeSample.Entities
 {
     public class Cart : BaseEntity
     {
-        public Guid Id { get; set; }
         [Required]
         public User User { get; set; }
         public string SessionId { get; set; }

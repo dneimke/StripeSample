@@ -94,6 +94,45 @@ namespace StripeSample.Controllers
         }
 
 
+        public async Task<IActionResult> Checkout()
+        {
+            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
+            ViewBag.HasSubscription = subscriptions.Any();
+
+            if (!subscriptions.Any())
+            {
+                var session = await _stripeService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
+
+                var cart = new Cart
+                {
+                    Id = Guid.NewGuid(),
+                    CreatedDateTime = DateTime.Now,
+                    ModifiedDateTime = DateTime.Now,
+                    CartState = CartState.Created,
+                    SessionId = session.Id,
+                    User = _userContext.GetUser()
+                };
+
+                _dbContext.Cart.Add(cart);
+
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession}", "Cart", "Created", cart.Id, cart.CartState, session.Id);
+
+                ViewBag.CheckoutSessionId = session.Id;
+            }
+
+            return View();
+        }
+
+        [HttpPost("account/do-checkout")]
+        public IActionResult DoCheckout([FromBody]Stripe.PaymentMethod m)
+        {
+           
+            return Json(new { Result = "Success" });
+        }
+
+
         [HttpPost]
         public async Task<IActionResult> CancelSubscription()
         {

@@ -1,0 +1,264 @@
+﻿.checkout-form.submitted form,
+.checkout-form.submitting form {
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+}
+
+.checkout-form.submitted .success,
+.checkout-form.submitting .success {
+    pointer-events: all;
+}
+
+.checkout-form.submitting .success .icon {
+    opacity: 1;
+}
+
+.checkout-form.submitted .success > * {
+    opacity: 1;
+    transform: none !important;
+}
+
+.checkout-form.submitted .success > :nth-child(2) {
+    transition-delay: 0.1s;
+}
+
+.checkout-form.submitted .success > :nth-child(3) {
+    transition-delay: 0.2s;
+}
+
+.checkout-form.submitted .success > :nth-child(4) {
+    transition-delay: 0.3s;
+}
+
+.checkout-form.submitted .success .icon .border,
+.checkout-form.submitted .success .icon .checkmark {
+    opacity: 1;
+    stroke-dashoffset: 0 !important;
+}
+
+
+
+.checkout-form .success {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -ms-flex-align: center;
+    align-items: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    padding: 10px;
+    text-align: center;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+@media (min-width: 670px) {
+    .checkout-form .success {
+        padding: 40px;
+    }
+}
+
+.checkout-form .success > * {
+    transition-property: opacity, transform;
+    transition-duration: 0.35s;
+    transition-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+    opacity: 0;
+    transform: translateY(50px);
+}
+
+.checkout-form .success .icon {
+    margin: 15px 0 30px;
+    transform: translateY(70px) scale(0.75);
+}
+
+    .checkout-form .success .icon svg {
+        will-change: transform;
+    }
+
+    .checkout-form .success .icon .border {
+        stroke-dasharray: 251;
+        stroke-dashoffset: 62.75;
+        transform-origin: 50% 50%;
+        transition: stroke-dashoffset 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
+        animation: spin 1s linear infinite;
+    }
+
+    .checkout-form .success .icon .checkmark {
+        stroke-dasharray: 60;
+        stroke-dashoffset: 60;
+        transition: stroke-dashoffset 0.35s cubic-bezier(0.165, 0.84, 0.44, 1) 0.35s;
+    }
+
+.checkout-form .success .title {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.checkout-form .success .message {
+    font-size: 14px;
+    font-weight: 400;
+    margin-bottom: 25px;
+    line-height: 1.6em;
+}
+
+    .checkout-form .success .message span {
+        font-size: inherit;
+    }
+
+.checkout-form .success .reset:active {
+    transition-duration: 0.15s;
+    transition-delay: 0s;
+    opacity: 0.65;
+}
+
+.checkout-form .success .reset svg {
+    will-change: transform;
+}
+
+.checkout-form .error {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-pack: center;
+    justify-content: center;
+    position: absolute;
+    width: 100%;
+    top: 100%;
+    margin-top: 20px;
+    left: 0;
+    padding: 0 15px;
+    font-size: 13px !important;
+    opacity: 0;
+    transform: translateY(10px);
+    transition-property: opacity, transform;
+    transition-duration: 0.35s;
+    transition-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+    .checkout-form .error.visible {
+        opacity: 1;
+        transform: none;
+    }
+
+    .checkout-form .error .message {
+        font-size: inherit;
+    }
+
+    .checkout-form .error svg {
+        -ms-flex-negative: 0;
+        flex-shrink: 0;
+        margin-top: -1px;
+        margin-right: 10px;
+    }
+
+    .checkout-form {
+        font-family: Inter UI, Open Sans, Segoe UI, sans-serif;
+        font-size: 16px;
+        font-weight: 500;
+    }
+
+    .checkout-form fieldset legend {
+        float: left;
+        width: 100%;
+        text-align: center;
+        font-size: 13px;
+        color: #8898aa;
+        padding: 3px 10px 7px;
+    }
+
+    .checkout-form form {
+        max-width: 496px !important;
+        padding: 0 15px;
+    }
+
+        .checkout-form form > * + * {
+            margin-top: 20px;
+        }
+
+    .checkout-form .container {
+        background-color: #fff;
+        box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+        border-radius: 4px;
+        padding: 3px;
+    }
+
+    .checkout-form fieldset {
+        border-style: none;
+        padding: 5px;
+        margin-left: -5px;
+        margin-right: -5px;
+        background: rgba(18, 91, 152, 0.05);
+        border-radius: 8px;
+    }
+
+        .checkout-form fieldset legend {
+            float: left;
+            width: 100%;
+            text-align: center;
+            font-size: 13px;
+            color: #8898aa;
+            padding: 3px 10px 7px;
+        }
+
+            .checkout-form fieldset legend + * {
+                clear: both;
+            }
+
+    .checkout-form input, .checkout-form button {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        outline: none;
+        border-style: none;
+        color: #fff;
+    }
+
+    .checkout-form .card {
+        padding: 10px;
+        margin-bottom: 2px;
+    }
+
+    .checkout-form button {
+        display: block;
+        width: 100%;
+        height: 37px;
+        border-radius: 2px;
+        color: #fff;
+        cursor: pointer;
+    }
+
+
+    .checkout-form .error svg .base {
+        fill: #e25950;
+    }
+
+    .checkout-form .error svg .glyph {
+        fill: #f6f9fc;
+    }
+
+    .checkout-form .error .message {
+        color: #e25950;
+    }
+
+    .checkout-form .success .icon .border {
+        stroke: #abe9d2;
+    }
+
+    .checkout-form .success .icon .checkmark {
+        stroke: #24b47e;
+    }
+
+    .checkout-form .success .title {
+        color: #32325d;
+    }
+
+    .checkout-form .success .message {
+        color: #8898aa;
+    }

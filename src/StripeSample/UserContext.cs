@@ -1,9 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using StripeSample.Entities;
+﻿using StripeSample.Entities;
 using StripeSample.Infrastructure.Data;
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace StripeSample
 {
