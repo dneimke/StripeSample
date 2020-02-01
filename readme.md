@@ -10,7 +10,7 @@ This sample application shows a simple user flow for performing the following ac
   * Reinstate a paused subscription
   * View all invoices
 
-![alt-text](https://raw.githubusercontent.com/dneimke/StripeSample/master/docs-images/application-overview.png)
+![alt-text][application-overview]
 
 ## Getting Started
 
@@ -36,9 +36,9 @@ Install the [Stripe CLI](https://github.com/stripe/stripe-cli) and run the follo
 
 ```ps
 .\stripe.exe listen --forward-to localhost:55965/Home/Webhook
-``
+```
 
-[application-overview]: ./docs-images/application-overview.png "Application user flows diagram"
+
 
 ## Using the Stripe API
 
@@ -48,3 +48,5 @@ The how to [Set up a subscription](https://stripe.com/docs/billing/subscriptions
 how to create subscriptions in code.
 
 You can also get some useful examples for creating card elements at the [following link on GitHub](https://stripe.dev/elements-examples/)
+
+[application-overview]: ./docs-images/application-overview.png "Application user flows diagram"
