@@ -1,0 +1,82 @@
+﻿@model StripeSample.Handlers.SubscriptionDetails.ViewModel
+@using StripeSample.Controllers 
+@{
+    ViewData["Title"] = "Account Details";
+}
+
+<div class="container">
+
+    <div class="border-bottom mb-5">
+        <h2>@ViewData["Title"]</h2>
+    </div>
+
+    <div class="row my-4">
+        <div class="col">
+            <div class="card w-75">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col-6">
+                            <h4 class="card-title">@Model.PlanTitle</h4>
+                        </div>
+                        <div class="col-6 text-right">
+                            @if (Model.ShowCancelOption)
+                            {
+                                <button class="btn btn-warning" id="cancel-subscription">Cancel Subscription</button>
+                            }
+                            else if (Model.ShowUpgradeOption)
+                            {
+                                <a asp-controller="Account" asp-action="@nameof(AccountController.Upgrade)" class="btn btn-success">Upgrade</a>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">@Model.PlanDescription</p>
+                    @if (Model.IsPendingCancellation)
+                    {
+                        <div class="alert alert-warning mt-4 mb-2 mx-4" role="alert">
+                            <span class="fas fa-exclamation-circle text-warning mr-2"> </span> Your subscription is due to expire and will lapse at the end of the current billing period.
+                            <p>Click here now if you want to prevent expiration.</p>
+                            <div class="text-center">
+                                <button class="btn btn-primary" id="remain-subscribed">Remain Subscribed</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row my-4">
+        <div class="col">
+            <div class="d-flex justify-content-start">
+
+                <div class="card bg-light mr-4" style="width: 23rem;">
+                    <div class="card-body">
+                        <h4 class="card-title">Next payment due</h4>
+                        <h5 class="card-subtitle mb-2 font-weight-bold">
+                            @if (Model.HasSubscription && Model.CurrentPeriodEnd.HasValue)
+                            {
+                                @Model.CurrentPeriodEnd.Value.ToString("dd-MMM-yyyy")
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </h5>
+
+                        @if (Model.HasLatestInvoice)
+                        {
+                            <p>Latest invoice: <a href="@Model.LatestInvoicePdfUrl" target="_blank">@Model.LatestInvoiceNumber</a></p>
+                        }
+
+                        <a asp-controller="Account" asp-action="@nameof(AccountController.Invoices)" class="card-link">View Invoices</a>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+

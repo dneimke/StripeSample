@@ -1,164 +1,56 @@
-﻿using Hangfire;
-using Microsoft.AspNetCore.Http;
+﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Stripe;
-using StripeSample.Entities;
-using StripeSample.Infrastructure.Data;
-using StripeSample.Models;
-using StripeSample.Services;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
+using StripeSample.Handlers;
 using System.Threading.Tasks;
 
 namespace StripeSample.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly ApplicationDbContext _dbContext;
-        private readonly StripeService _stripeService;
-        private readonly UserContext _userContext;
-        private readonly ILogger _logger;
-        private readonly StripeSettings _stripeSettings;
-        private readonly TestData _testData;
+        private readonly IMediator _mediator;
 
-        public AccountController(ApplicationDbContext dbContext, StripeService stripeService, UserContext userContext, IOptions<TestData> testData, IOptions<StripeSettings> stripeSettings, ILogger<AccountController> logger)
+        public AccountController(IMediator mediator)
         {
-            _dbContext = dbContext;
-            _stripeService = stripeService;
-            _userContext = userContext;
-            _logger = logger;
-            _stripeSettings = stripeSettings.Value;
-            _testData = testData.Value;
+            _mediator = mediator;
         }
 
-        public async Task<IActionResult> Subscriptions()
+        public async Task<IActionResult> Index()
         {
-            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
-
-            if (subscriptions != null)
-            {
-                return View(subscriptions.FirstOrDefault());
-            }
-
-            return View();
+            var result = await _mediator.Send(new SubscriptionDetails.Request());
+            return View(result);
         }
 
         public async Task<IActionResult> Invoices()
         {
-            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
-
-            if (subscriptions != null && subscriptions.Count > 0)
-            {
-                var subscription = subscriptions.First();
-                var invoices = await _stripeService.ListInvoices(subscription.Id);
-                return View(invoices);
-            }
-
-            return View();
+            var result = await _mediator.Send(new InvoicesForCurrentUser.Request());
+            return View(result);
         }
 
-        public async Task<IActionResult> Plans()
+        public async Task<IActionResult> Upgrade()
         {
-            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
-            ViewBag.HasSubscription = subscriptions.Any();
-
-            if (!subscriptions.Any())
-            {
-                var session = await _stripeService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
-
-                var cart = new Cart
-                {
-                    Id = Guid.NewGuid(),
-                    CreatedDateTime = DateTime.Now,
-                    ModifiedDateTime = DateTime.Now,
-                    CartState = CartState.Created,
-                    SessionId = session.Id,
-                    User = _userContext.GetUser()
-                };
-
-                _dbContext.Cart.Add(cart);
-
-                await _dbContext.SaveChangesAsync();
-
-                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession}", "Cart", "Created", cart.Id, cart.CartState, session.Id);
-
-                ViewBag.CheckoutSessionId = session.Id;
-            }
-
-            return View();
+            var result = await _mediator.Send(new UpgradeSubscription.Request());
+            return View(result);
         }
-
-
-        public async Task<IActionResult> Checkout()
-        {
-            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
-            ViewBag.HasSubscription = subscriptions.Any();
-
-            if (!subscriptions.Any())
-            {
-                var session = await _stripeService.CreateCheckoutSession(_testData.PlanId, _userContext.CustomerId);
-
-                var cart = new Cart
-                {
-                    Id = Guid.NewGuid(),
-                    CreatedDateTime = DateTime.Now,
-                    ModifiedDateTime = DateTime.Now,
-                    CartState = CartState.Created,
-                    SessionId = session.Id,
-                    User = _userContext.GetUser()
-                };
-
-                _dbContext.Cart.Add(cart);
-
-                await _dbContext.SaveChangesAsync();
-
-                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession}", "Cart", "Created", cart.Id, cart.CartState, session.Id);
-
-                ViewBag.CheckoutSessionId = session.Id;
-            }
-
-            return View();
-        }
-
-        [HttpPost("account/do-checkout")]
-        public IActionResult DoCheckout([FromBody]Stripe.PaymentMethod m)
-        {
-           
-            return Json(new { Result = "Success" });
-        }
-
 
         [HttpPost]
-        public async Task<IActionResult> CancelSubscription()
+        public async Task<IActionResult> RemainActive([FromBody] RemainActive.Request request)
         {
-            var subscriptions = await _stripeService.ListSubscriptions(_userContext.CustomerId);
-            await _stripeService.CancelSubscription(subscriptions[0].Id);
-            return RedirectToAction(nameof(Plans));
+            await _mediator.Send(request);
+            return Json(new { Status = "Completed" });
         }
 
-        public async Task<IActionResult> Success(string sessionId)
+        [HttpPost]
+        public async Task<IActionResult> CancelSubscription([FromBody] CancelSubscription.Request request)
         {
-            var cart = await _dbContext.Cart.FirstOrDefaultAsync(e => e.SessionId == sessionId);
+            await _mediator.Send(request);
+            return Json(new { Status = "Completed" });
+        }
 
-            if (cart != null)
-            {
-                cart.CartState = CartState.Fulfilled;
-                cart.ModifiedDateTime = DateTime.Now;
-                await _dbContext.SaveChangesAsync();
+        public IActionResult UpgradeCB(string sessionId)
+        {
+            // could complete the checkout session here... in this sample, we're only handling it via webhooks
 
-                _logger.LogInformation("{Entity} was {Action}.  Details: {CartId} {CartState} {CartSession} {IsEcommerce}", "Cart", "Fulfilled", cart.Id, cart.CartState, cart.SessionId, true);
-            }
-            else
-            {
-                _logger.LogWarning("{Entity} was {Action}.  Details: Unable to find a cart with {CartSession} {IsEcommerce}", "Cart", "Fulfilled", sessionId, true);
-            }
-
-            return RedirectToAction(nameof(Subscriptions));
+            return RedirectToAction(nameof(Index));
         }
 
     }

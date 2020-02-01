@@ -1,4 +1,4 @@
-﻿using StripeSample.Entities;
+﻿using StripeSample.Domain;
 using StripeSample.Infrastructure.Data;
 using System;
 using System.Linq;
@@ -7,28 +7,28 @@ namespace StripeSample
 {
     public class UserContext
     {
-        private readonly ApplicationDbContext _dbContext;
+        private readonly SubscriptionsContext _dbContext;
 
         public Guid Id { get; }
         public string EmailAddress { get; }
         public string CustomerId { get; }
 
-        public UserContext(ApplicationDbContext dbContext)
+        public UserContext(SubscriptionsContext dbContext)
         {
-            var testUser = dbContext.User.FirstOrDefault(e => e.Id == Guid.Parse("07b742cc-8c82-43b6-8615-de54635db929"));
-            if(testUser != null)
+            var user = dbContext.ApplicationUser.FirstOrDefault(e => e.Id == Guid.Parse("07b742cc-8c82-43b6-8615-de54635db929"));
+            if(user != null)
             {
-                Id = testUser.Id;
-                EmailAddress = testUser.EmailAddress;
-                CustomerId = testUser.CustomerId;
+                Id = user.Id;
+                EmailAddress = user.EmailAddress;
+                CustomerId = user.CustomerId;
             }
 
             _dbContext = dbContext;
         }
 
-        public User GetUser()
+        public ApplicationUser GetUser()
         {
-            var user = _dbContext.User.FirstOrDefault(e => e.Id == Id);
+            var user = _dbContext.ApplicationUser.FirstOrDefault(e => e.Id == Id);
             return user;
         } 
     }

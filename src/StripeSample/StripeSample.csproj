@@ -13,22 +13,25 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Hangfire.AspNetCore" Version="1.7.6" />
-    <PackageReference Include="HangFire.Core" Version="1.7.6" />
-    <PackageReference Include="HangFire.SqlServer" Version="1.7.6" />
-    <PackageReference Include="MediatR" Version="7.0.0" />
+    <Content Remove="Views\Account\Subscriptions.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Migrations\20190821015113_InitialMigration.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.7.9" />
+    <PackageReference Include="HangFire.Core" Version="1.7.9" />
+    <PackageReference Include="HangFire.SqlServer" Version="1.7.9" />
+    <PackageReference Include="MediatR" Version="8.0.0" />
+    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.8.0" />
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="2.2.3" />
     
-    <PackageReference Include="Stripe.net" Version="29.5.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Migrations\20190821015113_InitialMigration.sql">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <PackageReference Include="Stripe.net" Version="34.18.0" />
   </ItemGroup>
 
 </Project>

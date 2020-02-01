@@ -1,0 +1,104 @@
+﻿@model StripeSample.Handlers.UpgradeSubscription.ViewModel
+@using Microsoft.Extensions.Options
+@using StripeSample.Infrastructure.Configuration
+@inject IOptions<StripeSettings> _settings
+@{
+    ViewData["Title"] = "Upgrade to Standard Plan";
+}
+
+<div class="container">
+
+    <div class="border-bottom mb-5 text-center">
+        <h2>@ViewData["Title"]</h2>
+    </div>
+
+    <div class="row my-4">
+
+        <div class="col-md-4 offset-md-2">
+
+            <h3>Upgrade Summary</h3>
+
+            <ul class="list-unstyled border-bottom">
+                <li>
+                    <strong>@Model.EmailAddress</strong>
+                </li>
+                <li class="text-muted">
+                    <small>Free, $0 / month</small>
+                </li>
+            </ul>
+
+            <div class="my-4 border-bottom clearfix pb-1">
+                <div class="float-left">
+                    <strong>New monthly total</strong>
+                </div>
+                <div class="float-right">
+                    $8.00 / month
+                </div>
+            </div>
+
+            <div class="my-4 border-bottom clearfix pb-1">
+                <div class="float-left">
+                    <strong>Due today</strong>
+                </div>
+                <div class="float-right" style="font-size: 1.3em">
+                    <strong>$8.00</strong>
+                </div>
+            </div>
+
+            <div class="card mt-5" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">Stripe Payments</h5>
+                    <p class="card-text">We use the Stripe software platform to manage subscriptions and handle payment details.</p>
+                    <a href="https://stripe.com/" target="_blank" class="card-link">Visit Stripe</a>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-md-4 offset-md-2">
+
+            <article class="card text-center" style="width: 22rem">
+                <span style="padding-top: .25rem; padding-bottom: .25rem; display: block; border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-radius: .25rem; background: #63e6be;"></span>
+                <div class="card-header">
+                    <div class="plan-icon px-2 py-4" style="text-align: center">
+                        <img style="width: 3.2em" src="~/images/car.svg" alt="">
+                    </div>
+                    <h3 style=" font-weight: 600">Standard</h3>
+                </div>
+                <div class="card-body pb-3" style="line-height: 1;">
+                    <div class="text-success" style="font-size: 3.8147rem; font-weight: 600">$8</div>
+                    <div class="text-muted">per month</div>
+                    <hr />
+                    <ul class="list-unstyled text-center">
+                        <li class="pb-2"><span style="text-align: right; width: 37%" class="pr-2">Unlimited</span> Goodness!!</li>
+                        <li class="pb-2">
+                            &nbsp;
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-footer" style="background-color: #fff; background-image: none">
+                    <button class="btn-lg btn-success text-decoration-none" id="UpgradeButton">
+                        <span class="fas fa-shopping-basket" style="margin-right: 5px"> </span>
+                        Proceed to Checkout
+                    </button>
+                </div>
+            </article>
+
+        </div>
+    </div>
+
+</div>
+
+
+@section Scripts {
+    <script src="https://js.stripe.com/v3/"></script>
+
+    <script type="text/javascript">
+
+        const stripe = Stripe('@_settings.Value.PublicKey');
+        const checkoutSessionId = '@Model.CheckoutSessionId'
+
+       
+
+    </script>
+}

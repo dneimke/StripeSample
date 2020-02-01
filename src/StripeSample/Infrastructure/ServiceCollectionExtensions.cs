@@ -1,23 +1,29 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Stripe;
 using Stripe.Checkout;
-using StripeSample.Models;
+using StripeSample.Handlers;
 using StripeSample.Services;
-using System;
 
 namespace StripeSample.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
-        public static void AddStripe(this IServiceCollection services)
+        public static IServiceCollection AddStripe(this IServiceCollection services)
         {
-            services.AddTransient<StripeService>();
-            services.AddTransient<ProductService>();
-            services.AddTransient<PlanService>();
-            services.AddTransient<CustomerService>();
-            services.AddTransient<SubscriptionService>();
-            services.AddTransient<SessionService>();
-            services.AddTransient<InvoiceService>();
+            services.AddSingleton<ProductService>();
+            services.AddSingleton<PlanService>();
+            services.AddSingleton<CustomerService>();
+            services.AddSingleton<SubscriptionService>();
+            services.AddSingleton<SessionService>();
+            services.AddSingleton<InvoiceService>();
+
+            services.AddScoped<IStripeService, StripeService>();
+
+            services.AddScoped<CheckoutSessionCompletedEventHandler>(); 
+            services.AddScoped<SubscriptionChangedEventHandler>();
+            services.AddScoped<InvoiceChangedEventHandler>();
+
+            return services;
         }
     }
 }

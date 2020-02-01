@@ -1,56 +1,55 @@
-﻿@model List<Stripe.Invoice>
-@using System.Globalization
+﻿@model StripeSample.Handlers.InvoicesForCurrentUser.ViewModel
+@using StripeSample.Infrastructure
+@using StripeSample.Controllers
 @{
-    ViewData["Title"] = "Invoices";
+    ViewData["Title"] = "Invoice History";
 }
 
-<h1>Invoices</h1>
+<div class="container">
 
-<table class="table table-hover">
-    <thead>
-        <tr>
-            <th>Number</th>
-            <th>Period</th>
-            <th>Amount</th>
-            <th>Amount Paid</th>
-            <th>Amount Owing</th>
-            <th>View</th>
-        </tr>
-    </thead>
-    <tbody>
-        @if (Model != null)
-        {
-            foreach (var invoice in Model)
-            {
+    <div class="border-bottom mb-5">
+        <h2><a asp-controller="Account" asp-action="@nameof(AccountController.Index)">Account Details</a> / @ViewData["Title"]</h2>
+    </div>
 
-                var start = invoice.Lines.Data.FirstOrDefault().Period.Start.Value.ToString("dd MMM yy",  CultureInfo.CurrentCulture);
-                var end = invoice.Lines.Data.FirstOrDefault().Period.End.Value.ToString("dd MMM yy",  CultureInfo.CurrentCulture);
-        <tr>
-            <td>@invoice.Number</td>
-            <td>@($"{start} to {end}")</td>
-            <td>@((invoice.AmountDue / 100).ToString("c", CultureInfo.CurrentCulture))</td>
-            <td>@((invoice.AmountPaid / 100).ToString("c", CultureInfo.CurrentCulture))</td>
-            <td>@((invoice.AmountRemaining / 100).ToString("c", CultureInfo.CurrentCulture))</td>
-            <td>
-                @if (string.IsNullOrEmpty(invoice.HostedInvoiceUrl))
+    <table class="table table-sm table-hover">
+        <thead class="thead-light">
+            <tr>
+                <th scope="col">Paid</th>
+                <th scope="col">ID</th>
+                <th scope="col">Period</th>
+                @*<th scope="col">Payment method</th>*@
+                <th scope="col">Amount</th>
+                <th scope="col">Invoice PDF</th>
+            </tr>
+        </thead>
+        <tbody>
+
+            @if (Model.HasInvoices)
+            {@foreach (var invoice in Model.Invoices)
                 {
-                    <span class="badge badge-pill badge-info" title="@invoice.DueDate">Pending</span>
+                    <tr>
+                        <td scope="row">
+                            @if (invoice.IsPaid)
+                            {
+                                <i class="fas fa-check mr-2 text-success font-weight-bold"></i>
+                            }
+                        </td>
+                        <td scope="row">@invoice.InvoiceNumber</td>
+                        <td>@invoice.PeriodStart - @invoice.PeriodEnd</td>
+                        @*<td><i class="fas fa-credit-card mr-2"></i> Visa ending in</td>*@
+                        <td>@invoice.AmountDueInCents.CentsAsDollars(invoice.CurrencyCode)</td>
+                        <td><a href="@invoice.HostedInvoiceUrl" target="_blank"><i class="fas fa-download mr-2"></i></a></td>
+                    </tr>
                 }
-                else
-                {
-                    <a class="nav-link" href="@invoice.HostedInvoiceUrl" target="_blank">View</a>
-                }
-            </td>
-            
-        </tr>
-            }
 
         }
         else
         {
             <tr>
-                <td colspan="5">You have no invoices to display</td>
+                <td scope="row" colspan="5">There are no invoices to display.</td>
             </tr>
         }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+
+</div>

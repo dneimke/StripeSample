@@ -1,14 +1,14 @@
 using Hangfire;
+using MediatR;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Stripe;
 using StripeSample.Infrastructure;
+using StripeSample.Infrastructure.Configuration;
 using StripeSample.Infrastructure.Data;
-using StripeSample.Models;
 using System;
 
 namespace StripeSample
@@ -24,47 +24,69 @@ namespace StripeSample
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddApplicationInsightsTelemetry(Configuration);
-            services.AddStripe();
 
-            services.Configure<StripeSettings>(Configuration.GetSection("Stripe"));
-            services.Configure<TestData>(Configuration.GetSection("TestData"));
+            services.Configure<StripeSettings>(Configuration.GetSection("StripeSettings"));
+            services.Configure<ApplicationSettings>(Configuration.GetSection("ApplicationSettings"));
+            services.AddScoped<UserContext>();
 
             var connection = Configuration.GetConnectionString("SqlConnection");
-            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connection));
 
-            services.AddHangfire(x => x.UseSqlServerStorage(connection));
-            services.AddHangfireServer();
-
-            services.AddTransient<UserContext>();
+            services.AddSingleton(Configuration)
+                .AddApplicationInsightsTelemetry(Configuration)
+                .AddStripe()
+                .AddCustomHangfire(connection)
+                .AddCustomDatabase(connection)
+                .AddMediatR(typeof(Startup));
 
             services.AddMvc();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, Microsoft.AspNetCore.Hosting.IHostingEnvironment env, ApplicationDbContext dbContext, IBackgroundJobClient backgroundJobs)
+        public void Configure(IApplicationBuilder app, IServiceProvider services)
         {
-            dbContext.Database.Migrate();
+            var settings = services.GetService<IOptions<StripeSettings>>();
 
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
-            else
-            {
-                app.UseExceptionHandler("/Home/Error");
-                app.UseHsts();
-            }
+            StripeConfiguration.ApiKey = settings.Value.PrivateKey;
 
-            var privateKey = Configuration.GetSection("Stripe")["PrivateKey"];
-            StripeConfiguration.ApiKey = privateKey;
+            services.MigrateDbContext<SubscriptionsContext>((context, __) =>
+            {
+                new SubscriptionsContextSeed()
+                    .SeedAsync(context, settings.Value)
+                    .Wait();
+            });
 
             app.UseHangfireDashboard();
-            // backgroundJobs.Enqueue(() => Console.WriteLine("Hangfire Server is running!"));
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseMvcWithDefaultRoute();
+        }
+    }
+
+    static class CustomStartupExtensionMethods
+    {
+        public static IServiceCollection AddCustomHangfire(this IServiceCollection services, string connectionString)
+        {
+            services.AddHangfire(c => c.UseSqlServerStorage(connectionString));
+            services.AddHangfireServer();
+
+            return services;
+        }
+
+        public static IServiceCollection AddCustomDatabase(this IServiceCollection services, string connectionString)
+        {
+            services.AddDbContext<SubscriptionsContext>(o =>
+            {
+                o.UseSqlServer(connectionString, x =>
+                {
+                    x.MigrationsHistoryTable(SubscriptionsContext.MIGRATIONS_TABLE, SubscriptionsContext.DEFAULT_SCHEMA);
+                    x.EnableRetryOnFailure();
+                });
+            });
+
+
+
+            return services;
         }
     }
 }
