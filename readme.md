@@ -10,7 +10,7 @@ This sample application shows a simple user flow for performing the following ac
   * Reinstate a paused subscription
   * View all invoices
 
-![alt-text][application-overview]
+![alt-text](https://raw.githubusercontent.com/dneimke/StripeSample/master/docs-images/application-overview.png)
 
 ## Getting Started
 
