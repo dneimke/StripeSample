@@ -1,18 +1,29 @@
-﻿@{
+﻿@model StripeSample.Handlers.HomePage.ViewModel
+@using StripeSample.Controllers
+@{
     ViewData["Title"] = "Home Page";
 }
 
-    <div class="container">
+<div class="container">
 
-        <h2>Stripe Sample Application</h2>  
+    <h2>Stripe Sample Application</h2>
 
-        <p>This is a sample application to show how to create a payment subscription flow using C# and ASP.NET Core with the Stripe API.</p>
+    <div class="text-center">
+        @if (Model.HasSubscription)
+        {
 
-        <p>To get started, create a Product and a Customer.  You will then be able to sign-up for a monthly subscription for the Product.</p>
+            <p class="my-5">Congratulations, you have access to our premium content!</p>
+            <p>
+                <i class="fa fa-crown fa-5x text-warning"></i>
+            </p>
 
-        <p>Once you have a subscription, new Features will be available in the Application.</p>
-
-        <p>You can cancel your subscription at any time.</p>
-
+        }
+        else
+        {
+            <p class="my-5">
+                <a asp-controller="Account" asp-action="@nameof(AccountController.Index)">Subscribe</a> to gain access to our premium content!
+            </p>
+        }
     </div>
 
+</div>

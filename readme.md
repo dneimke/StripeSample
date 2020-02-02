@@ -35,7 +35,7 @@ Login to your [Stripe dashboard](https://dashboard.stripe.com) and create a Prod
 Install the [Stripe CLI](https://github.com/stripe/stripe-cli) and run the following command to start listening.
 
 ```ps
-.\stripe.exe listen --forward-to localhost:55965/Home/Webhook
+.\stripe.exe listen --forward-to localhost:55965/Webhook/Handle
 ```
 
 

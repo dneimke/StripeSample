@@ -1,17 +1,23 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using StripeSample.Handlers;
+using System.Threading.Tasks;
 
 namespace StripeSample.Controllers
 {
     public class HomeController : Controller
     {
-        public HomeController()
-        {
+        private readonly IMediator _mediator;
 
+        public HomeController(IMediator mediator)
+        {
+            _mediator = mediator;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            return View();
+            var result = await _mediator.Send(new HomePage.Request());
+            return View(result);
         }
     }
 }

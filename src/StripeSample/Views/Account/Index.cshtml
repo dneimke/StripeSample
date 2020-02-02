@@ -1,5 +1,5 @@
 ﻿@model StripeSample.Handlers.SubscriptionDetails.ViewModel
-@using StripeSample.Controllers 
+@using StripeSample.Controllers
 @{
     ViewData["Title"] = "Account Details";
 }
@@ -35,10 +35,11 @@
                     @if (Model.IsPendingCancellation)
                     {
                         <div class="alert alert-warning mt-4 mb-2 mx-4" role="alert">
-                            <span class="fas fa-exclamation-circle text-warning mr-2"> </span> Your subscription is due to expire and will lapse at the end of the current billing period.
+                            <span class="fa fa-exclamation-circle text-warning mr-2"> </span> Your subscription is due to expire and will lapse at the end of the current billing period.
                             <p>Click here now if you want to prevent expiration.</p>
                             <div class="text-center">
-                                <button class="btn btn-primary" id="remain-subscribed">Remain Subscribed</button>
+                                <button class="btn btn-primary mr-5" id="remain-subscribed">Remain Subscribed</button>
+                                <button class="btn btn-secondary" id="hard-cancel">Hard Cancel</button>
                             </div>
                         </div>
                     }
@@ -80,3 +81,209 @@
     </div>
 </div>
 
+
+@if (Model.ShowCancelOption)
+{
+    <div class="modal fade" tabindex="-1" role="dialog" id="cancel-subscription-dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content" id="cancel-subscription-dialog-content">
+                <div class="modal-header">
+                    <h4 class="modal-title"><span class="fa fa-exclamation-triangle text-warning mr-3" style="font-size: 1.3em"> </span> Are you sure you want to cancel your subscription?</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body p-5">
+                    <div class="pl-5 pb-2 mb-3" style="font-size: 1.2em">
+
+                        @if (Model.CurrentPeriodEnd.HasValue)
+                        {
+                            <p>Your subscribtion is paid until @Model.CurrentPeriodEnd.</p>
+                            <p>You can re-enable this subscription up until that date.</p>
+                            <p>After that date, you will need to create a new subscription.</p>
+                        }
+                        
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" id="cancel-sub-button" class="btn pull-left">Cancel subscription</button>
+
+                        <button class="btn" style="display: none" disabled id="cancel-sub-button-spin">
+                            <i class="fa fa-circle-notch fa-spin mr-2 text-info"></i>
+                            Cancelling subscription..
+                        </button>
+
+                        <button type="button" class="btn pull-right btn-primary" data-dismiss="modal">I changed my mind</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.IsPendingCancellation)
+{
+    <div class="modal fade" tabindex="-1" role="dialog" id="remain-subscribed-dialog">
+
+        <div class="modal-dialog" role="document">
+            <div class="modal-content" id="remain-subscribed-dialog-content">
+                <div class="modal-header">
+                    <h4 class="modal-title"><span class="fa fa-info-circle text-info mr-3" style="font-size: 1.3em"> </span> Updating subscription settings</h4>
+                    <button type="button" id="remain-sub-button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body text-center p-5">
+                    <i class="fa fa-circle-notch fa-spin fa-5x text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function (event) {
+            const _subscriptionId = '@Model.SubscriptionId';
+            let _cancelDfd, _remainDfd;
+
+            _cancelDialogElement = document.getElementById('cancel-subscription-dialog');
+            $(_cancelDialogElement).on('hidden.bs.modal', onCancelHidden);
+
+            _remainDialogElement = document.getElementById('remain-subscribed-dialog');
+            $(_remainDialogElement).on('hidden.bs.modal', onRemainHidden);
+
+            const showCancelBtn = document.getElementById('cancel-subscription');
+            if (!!showCancelBtn) {
+
+                showCancelBtn.addEventListener('click', async () => {
+                    const result = await ShowCancelSubscriptionDialog();
+                    if (true === result) {
+                        window.location.reload();
+                    }
+                });
+            }
+
+            const doCancelBtn = document.getElementById('cancel-sub-button');
+            if (!!doCancelBtn) {
+
+                doCancelBtn.addEventListener('click', async () => {
+                    $('#cancel-sub-button').hide();
+                    $('#cancel-sub-button-spin').show();
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", '@Url.Action(nameof(AccountController.CancelSubscription), "Account")', true);
+                    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+
+                    xhr.onreadystatechange = async function () {
+                        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                            await Sleep(4000);
+                            _cancelDfd(true);
+
+                            $('#cancel-sub-button-spin').hide();
+                            $('#cancel-sub-button').show();
+
+                            $(_cancelDialogElement).modal('hide');
+                        }
+                    }
+                    xhr.send(JSON.stringify({ subscriptionId: _subscriptionId}));
+                });
+            }
+
+            const hardCancelBtn = document.getElementById('hard-cancel');
+            if (!!hardCancelBtn) {
+
+                hardCancelBtn.addEventListener('click', async () => {
+
+                    if (confirm('Are you sure you want to do a hard cancel?')) {
+                        const result = await ShowHardCancelDialog();
+                        if (true === result) {
+                            window.location.reload();
+                        }
+                    }
+                    
+                });
+            }
+
+            const showRemainBtn = document.getElementById('remain-subscribed');
+            if (!!showRemainBtn) {
+
+                showRemainBtn.addEventListener('click', async () => {
+                    const result = await ShowRemainSubscribedDialog();
+                    if (true === result) {
+                        window.location.reload();
+                    }
+                });
+            }
+
+
+
+            async function ShowCancelSubscriptionDialog() {
+                $(_cancelDialogElement).modal('show');
+                return new Promise((resolve, reject) => {
+                    _cancelDfd = resolve;
+                });
+            }
+
+            async function ShowRemainSubscribedDialog() {
+                $(_remainDialogElement).modal('show');
+
+                return new Promise((resolve, reject) => {
+                    _remainDfd = resolve;
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", '@Url.Action(nameof(AccountController.RemainActive), "Account")', true);
+                    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+
+                    xhr.onreadystatechange = async function () {
+                        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                            await Sleep(4000);
+                            _remainDfd(true);
+                            $(_remainDialogElement).modal('hide');
+                        }
+                    }
+                    xhr.send(JSON.stringify({ subscriptionId: _subscriptionId }));
+                });
+            }
+
+            async function ShowHardCancelDialog() {
+                $(_remainDialogElement).modal('show');
+
+                return new Promise((resolve, reject) => {
+                    _remainDfd = resolve;
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", '@Url.Action(nameof(AccountController.CancelSubscription), "Account")', true);
+                    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+
+                    xhr.onreadystatechange = async function () {
+                        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                            await Sleep(4000);
+                            _remainDfd(true);
+
+                            $(_remainDialogElement).modal('hide');
+                        }
+                    }
+                    xhr.send(JSON.stringify({ subscriptionId: _subscriptionId, cancelImmediately: true }));
+                });
+            }
+
+
+            function onCancelHidden() {
+                _cancelDfd(false);
+            }
+
+            function onRemainHidden() {
+                _remainDfd(false);
+            }
+
+            function Sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        });
+
+    </script>
+}

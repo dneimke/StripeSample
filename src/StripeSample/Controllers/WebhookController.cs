@@ -40,7 +40,7 @@ namespace StripeSample.Controllers
             _logger = logger;
         }
 
-        public async Task<IAsyncResult> Webhook()
+        public async Task<IAsyncResult> Handle()
         {
             Event stripeEvent;
 

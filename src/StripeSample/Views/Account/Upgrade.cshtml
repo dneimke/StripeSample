@@ -60,9 +60,6 @@
             <article class="card text-center" style="width: 22rem">
                 <span style="padding-top: .25rem; padding-bottom: .25rem; display: block; border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-radius: .25rem; background: #63e6be;"></span>
                 <div class="card-header">
-                    <div class="plan-icon px-2 py-4" style="text-align: center">
-                        <img style="width: 3.2em" src="~/images/car.svg" alt="">
-                    </div>
                     <h3 style=" font-weight: 600">Standard</h3>
                 </div>
                 <div class="card-body pb-3" style="line-height: 1;">
@@ -78,7 +75,7 @@
                 </div>
                 <div class="card-footer" style="background-color: #fff; background-image: none">
                     <button class="btn-lg btn-success text-decoration-none" id="UpgradeButton">
-                        <span class="fas fa-shopping-basket" style="margin-right: 5px"> </span>
+                        <span class="fa fa-shopping-basket" style="margin-right: 5px"> </span>
                         Proceed to Checkout
                     </button>
                 </div>
@@ -95,10 +92,25 @@
 
     <script type="text/javascript">
 
-        const stripe = Stripe('@_settings.Value.PublicKey');
-        const checkoutSessionId = '@Model.CheckoutSessionId'
+        document.addEventListener("DOMContentLoaded", function (event) {
+            const _stripe = Stripe('@_settings.Value.PublicKey');
+            const _checkoutSessionId = '@Model.CheckoutSessionId'
 
-       
+            const upgradeButton = document.getElementById('UpgradeButton');
+            upgradeButton.addEventListener('click', () => {
+                _stripe.redirectToCheckout({
+                    sessionId: _checkoutSessionId
+                }).then((result) => {
+                    // If `redirectToCheckout` fails due to a browser or network
+                    // error, display the localized error message to your customer
+                    // using `result.error.message`.
+                    if (result.error) {
+                        console.error(result.error.message);
+                    }
+
+                });
+            })
+        })
 
     </script>
 }

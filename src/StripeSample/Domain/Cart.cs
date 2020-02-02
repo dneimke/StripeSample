@@ -1,5 +1,4 @@
 ﻿
-
 namespace StripeSample.Domain
 {
     public class Cart : Entity

@@ -18,8 +18,8 @@ namespace StripeSample.Handlers
 
         public class ViewModel
         {
-            const string _freeDescription = "Subscribe to get unlimited matches and groups.";
-            const string _paidDescription = "You have access to unlimited matches and groups.";
+            const string _freeDescription = "Subscribe to get premium content.";
+            const string _paidDescription = "You have access to premium content.";
 
             public ViewModel(Customer customer = null)
             {
