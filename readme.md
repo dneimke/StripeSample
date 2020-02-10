@@ -50,3 +50,11 @@ how to create subscriptions in code.
 You can also get some useful examples for creating card elements at the [following link on GitHub](https://stripe.dev/elements-examples/)
 
 [application-overview]: ./docs-images/application-overview.png "Application user flows diagram"
+
+## Useful Links
+
+* [Stripe's Developer Documentation](https://stripe.com/docs#developer-digest)
+* [Stripe Samples](https://stripe.dev/samples/#/)
+* [Stripe Developers YouTube Channel](https://www.youtube.com/stripedevelopers)
+* [Stripe CLI](https://github.com/stripe/stripe-cli#installation)
+* [Increment - Stripe's quarterly digital mangazine](https://increment.com/)
